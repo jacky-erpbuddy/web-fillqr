@@ -1,0 +1,14 @@
+# FillQR robots.txt
+# https://www.fillqr.de/robots.txt
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://www.fillqr.de/sitemap.xml
+
+# Verzeichnisse die nicht indexiert werden sollen
+Disallow: /api/
+Disallow: /css/
+Disallow: /js/
+Disallow: /images/

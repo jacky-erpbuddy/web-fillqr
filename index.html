@@ -356,7 +356,7 @@
                 <!-- Contact Form (als Ergänzung) -->
                 <div class="contact-form-wrapper">
                     <h3 class="contact-form__title">Oder nutzen Sie unser Kontaktformular</h3>
-                    <p class="contact-form__note">Hinweis: Nach Absenden öffnet sich Ihr E-Mail-Programm (Outlook, Thunderbird, etc.)</p>
+                    <p class="contact-form__note">Sie erhalten nach dem Absenden eine Bestaetigungsmail an Ihre E-Mail-Adresse.</p>
                     <div class="contact">
                     <form id="contact-form" class="contact__form">
                         <!-- Honeypot (Anti-Bot) -->
@@ -437,6 +437,14 @@
                             <input type="text" id="captcha" name="captcha" class="contact__input contact__input--small" required placeholder="Ihre Antwort" autocomplete="off">
                         </div>
 
+                        <!-- Privacy Checkbox -->
+                        <div class="contact__field contact__privacy">
+                            <label class="contact__checkbox">
+                                <input type="checkbox" id="privacy" name="privacy" required>
+                                <span class="contact__checkbox-text">Ich habe die <a href="datenschutz" target="_blank">Datenschutzerklaerung</a> gelesen und stimme der Verarbeitung meiner Daten zur Bearbeitung meiner Anfrage zu. *</span>
+                            </label>
+                        </div>
+
                         <!-- Submit -->
                         <button type="submit" class="btn btn--gradient btn--full">Anfrage senden</button>
 
@@ -454,7 +462,7 @@
                 <div class="footer__brand">
                     <p class="footer__title">FillQR</p>
                     <p class="footer__tagline">Digitale Mitgliedsanträge für Vereine</p>
-                    <p class="footer__note">Ein Produkt von <a href="https://erp-buddy.de">ERP Buddy</a></p>
+                    <p class="footer__note">Ein Produkt von <a href="https://erp-buddy.de" target="_blank" rel="noopener noreferrer">ERP Buddy</a></p>
                 </div>
                 <div class="footer__links">
                     <h4 class="footer__links-title">RECHTLICHES</h4>

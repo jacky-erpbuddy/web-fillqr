@@ -1,17 +1,18 @@
 # FillQR .htaccess
 # URL Rewriting (ohne .html Endung)
+# Security Headers
 # Kein Passwortschutz auf Hauptverzeichnis (nur Unterverzeichnisse)
 
 # Aktiviere URL Rewriting
 RewriteEngine On
 
-# HTTPS Redirect (optional - auskommentiert falls nicht gewünscht)
-# RewriteCond %{HTTPS} off
-# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# HTTPS Redirect - erzwingt sichere Verbindung
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Redirect www zu non-www (optional)
-# RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
-# RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+# Redirect www zu non-www (kanonische URL)
+RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
 
 # Entferne .html Endung aus URLs
 # Wenn User /impressum.html aufruft -> redirect zu /impressum
@@ -44,9 +45,31 @@ RewriteRule ^(.*)$ $1.html [L]
     AddOutputFilterByType DEFLATE text/html text/css application/javascript
 </IfModule>
 
-# Sicherheits-Header
+# Sicherheits-Header (Security Headers)
 <IfModule mod_headers.c>
-    Header set X-Content-Type-Options "nosniff"
-    Header set X-Frame-Options "SAMEORIGIN"
-    Header set X-XSS-Protection "1; mode=block"
+    # HSTS - Browser erzwingt HTTPS fuer 1 Jahr
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # Content Security Policy - Schutz vor XSS und Code-Injection
+    # 'unsafe-inline' fuer style noetig wegen inline CSS, Google Fonts erlaubt
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
+
+    # Verhindert MIME-Type Sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Clickjacking-Schutz - DENY da keine iframes benoetigt
+    Header always set X-Frame-Options "DENY"
+
+    # Legacy XSS-Filter (fuer aeltere Browser)
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # Referrer-Policy - URL nicht an externe Seiten leaken
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Permissions-Policy - Browser-Features einschraenken
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+    # Cross-Origin Policies
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Cross-Origin-Resource-Policy "same-origin"
 </IfModule>
