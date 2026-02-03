@@ -163,6 +163,59 @@ function initContactForm() {
 }
 
 /**
+ * Copy Email to Clipboard
+ */
+function copyEmail() {
+    const email = 'info@erp-buddy.de';
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(email).then(function() {
+            showCopyFeedback(true);
+        }).catch(function() {
+            fallbackCopy(email);
+        });
+    } else {
+        fallbackCopy(email);
+    }
+}
+
+function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    try {
+        document.execCommand('copy');
+        showCopyFeedback(true);
+    } catch (err) {
+        showCopyFeedback(false);
+    }
+
+    document.body.removeChild(textarea);
+}
+
+function showCopyFeedback(success) {
+    const btn = document.querySelector('.contact-option .btn--secondary');
+    if (!btn) return;
+
+    const originalText = btn.textContent;
+    btn.textContent = success ? 'Kopiert!' : 'Fehler - manuell kopieren';
+    btn.style.background = success ? 'var(--color-green)' : '#dc3545';
+    btn.style.borderColor = success ? 'var(--color-green)' : '#dc3545';
+    btn.style.color = '#fff';
+
+    setTimeout(function() {
+        btn.textContent = originalText;
+        btn.style.background = '';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+    }, 2000);
+}
+
+/**
  * Show message to user
  */
 function showMessage(text, type) {

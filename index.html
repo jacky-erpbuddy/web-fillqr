@@ -20,7 +20,7 @@
     <meta property="og:site_name" content="FillQR">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
 
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css">
@@ -327,14 +327,37 @@
                 <h2 class="section__title section__title--gradient">Interesse an <span>FillQR</span>?</h2>
                 <p class="section__subtitle">Wir richten FillQR persönlich für Ihren Verein ein – innerhalb von 1–2 Werktagen.</p>
 
-                <!-- Quick Contact -->
-                <div class="contact__quick">
-                    <span>Direkt per E-Mail:</span>
-                    <a href="mailto:info@erp-buddy.de" class="btn btn--secondary">info@erp-buddy.de</a>
+                <!-- Contact Options (Two Boxes) -->
+                <div class="contact-options">
+                    <div class="contact-option">
+                        <div class="contact-option__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                        </div>
+                        <h3>E-Mail kopieren</h3>
+                        <button class="btn btn--secondary btn--full" onclick="copyEmail()">info@erp-buddy.de kopieren</button>
+                        <p class="contact-option__hint">Für Gmail, Web.de, GMX &amp; Co.</p>
+                    </div>
+                    <div class="contact-option">
+                        <div class="contact-option__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                        </div>
+                        <h3>Direkt per E-Mail</h3>
+                        <a href="mailto:info@erp-buddy.de?subject=[FillQR] Interesse" class="btn btn--gradient btn--full">E-Mail öffnen</a>
+                        <p class="contact-option__hint">Öffnet Ihr E-Mail-Programm</p>
+                    </div>
                 </div>
 
-                <!-- Contact Form -->
-                <div class="contact">
+                <!-- Contact Form (als Ergänzung) -->
+                <div class="contact-form-wrapper">
+                    <h3 class="contact-form__title">Oder nutzen Sie unser Kontaktformular</h3>
+                    <p class="contact-form__note">Hinweis: Nach Absenden öffnet sich Ihr E-Mail-Programm (Outlook, Thunderbird, etc.)</p>
+                    <div class="contact">
                     <form id="contact-form" class="contact__form">
                         <!-- Honeypot (Anti-Bot) -->
                         <div class="contact__field contact__honeypot" aria-hidden="true">
@@ -417,8 +440,8 @@
                         <!-- Submit -->
                         <button type="submit" class="btn btn--gradient btn--full">Anfrage senden</button>
 
-                        <p class="contact__hint">Nach Absenden öffnet sich Ihr E-Mail-Programm. Falls nicht, schreiben Sie uns direkt an info@erp-buddy.de</p>
                     </form>
+                    </div>
                 </div>
             </div>
         </section>
@@ -436,8 +459,8 @@
                 <div class="footer__links">
                     <h4 class="footer__links-title">RECHTLICHES</h4>
                     <ul>
-                        <li><a href="impressum.html">Impressum</a></li>
-                        <li><a href="datenschutz.html">Datenschutz</a></li>
+                        <li><a href="impressum">Impressum</a></li>
+                        <li><a href="datenschutz">Datenschutz</a></li>
                     </ul>
                 </div>
                 <div class="footer__links">
