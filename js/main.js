@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initSmoothScroll();
     initContactForm();
     initCaptcha();
+    initCopyButton();
+    initScrollToForm();
 });
 
 /**
@@ -89,7 +91,10 @@ function initCaptcha() {
 
 /**
  * Contact Form Handler with Anti-Bot Protection
+ * Sends data to PHP proxy which forwards to n8n webhook
  */
+const CONTACT_API = '/api/contact.php';
+
 function initContactForm() {
     const form = document.getElementById('contact-form');
     if (!form) return;
@@ -97,7 +102,7 @@ function initContactForm() {
     // Track form load time (bots submit too fast)
     const formLoadTime = Date.now();
 
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         // Anti-Bot Check 1: Honeypot field should be empty
@@ -112,14 +117,14 @@ function initContactForm() {
         const timeSpent = Date.now() - formLoadTime;
         if (timeSpent < 3000) {
             console.log('Bot detected: Too fast submission');
-            showMessage('Bitte nehmen Sie sich einen Moment Zeit zum Ausfüllen.', 'error');
+            showMessage('Bitte nehmen Sie sich einen Moment Zeit zum Ausfuellen.', 'error');
             return;
         }
 
         // Anti-Bot Check 3: Captcha
         const captchaInput = form.querySelector('#captcha');
         if (captchaInput && parseInt(captchaInput.value) !== captchaAnswer) {
-            showMessage('Die Rechenaufgabe wurde nicht korrekt gelöst. Bitte versuchen Sie es erneut.', 'error');
+            showMessage('Die Rechenaufgabe wurde nicht korrekt geloest. Bitte versuchen Sie es erneut.', 'error');
             initCaptcha(); // Generate new question
             captchaInput.value = '';
             captchaInput.focus();
@@ -132,51 +137,106 @@ function initContactForm() {
         const email = form.querySelector('#email')?.value.trim() || '';
         const message = form.querySelector('#message')?.value.trim() || '';
         const topic = form.querySelector('input[name="topic"]:checked')?.value || 'Interesse an FillQR';
+        const privacy = form.querySelector('#privacy')?.checked || false;
 
         // Validation
         if (!verein || !name || !email) {
-            showMessage('Bitte alle Pflichtfelder ausfüllen.', 'error');
+            showMessage('Bitte alle Pflichtfelder ausfuellen.', 'error');
             return;
         }
 
-        // Create mailto link
-        const subject = encodeURIComponent('[FillQR] ' + topic + ' - ' + verein);
-        const body = encodeURIComponent(
-            'Verein: ' + verein + '\n' +
-            'Ansprechpartner: ' + name + '\n' +
-            'E-Mail: ' + email + '\n' +
-            'Thema: ' + topic + '\n\n' +
-            'Nachricht:\n' + (message || '(keine Nachricht)')
-        );
+        if (!privacy) {
+            showMessage('Bitte stimmen Sie der Datenschutzerklaerung zu.', 'error');
+            return;
+        }
 
-        // Create and click mailto link
-        const mailtoLink = document.createElement('a');
-        mailtoLink.href = 'mailto:info@erp-buddy.de?subject=' + subject + '&body=' + body;
-        mailtoLink.style.display = 'none';
-        document.body.appendChild(mailtoLink);
-        mailtoLink.click();
-        document.body.removeChild(mailtoLink);
+        // Disable submit button and show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird gesendet...';
 
-        // Show confirmation
-        showMessage('Vielen Dank! Ihr E-Mail-Programm sollte sich jetzt öffnen. Falls nicht, schreiben Sie uns direkt an info@erp-buddy.de', 'success');
+        try {
+            // Send to PHP proxy (which forwards to n8n)
+            const response = await fetch(CONTACT_API, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    verein: verein,
+                    name: name,
+                    email: email,
+                    message: message,
+                    topic: topic,
+                    privacy: privacy
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // Success
+                showMessage('Vielen Dank! Ihre Anfrage wurde gesendet. Sie erhalten in Kuerze eine Bestaetigungsmail.', 'success');
+                form.reset();
+                initCaptcha(); // Reset captcha
+            } else {
+                // Server returned error
+                showMessage(result.message || 'Es gab ein Problem. Bitte versuchen Sie es erneut oder schreiben Sie uns direkt an info@erp-buddy.de', 'error');
+            }
+        } catch (error) {
+            // Network error
+            console.error('Form submission error:', error);
+            showMessage('Verbindungsfehler. Bitte versuchen Sie es erneut oder schreiben Sie uns direkt an info@erp-buddy.de', 'error');
+        } finally {
+            // Re-enable submit button
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalBtnText;
+        }
     });
 }
 
 /**
- * Copy Email to Clipboard
+ * Copy Email Button - CSP-konform via Event Listener
  */
-function copyEmail() {
-    const email = 'info@erp-buddy.de';
+function initCopyButton() {
+    const copyBtn = document.getElementById('copy-email-btn');
+    if (!copyBtn) return;
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(email).then(function() {
-            showCopyFeedback(true);
-        }).catch(function() {
+    copyBtn.addEventListener('click', function() {
+        const email = 'info@erp-buddy.de';
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(email).then(function() {
+                showCopyFeedback(true);
+            }).catch(function() {
+                fallbackCopy(email);
+            });
+        } else {
             fallbackCopy(email);
+        }
+    });
+}
+
+/**
+ * Scroll to Contact Form Button
+ */
+function initScrollToForm() {
+    const scrollBtn = document.getElementById('scroll-to-form-btn');
+    if (!scrollBtn) return;
+
+    scrollBtn.addEventListener('click', function() {
+        const form = document.getElementById('contact-form');
+        if (!form) return;
+
+        const headerHeight = document.querySelector('.header').offsetHeight;
+        const targetPosition = form.getBoundingClientRect().top + window.pageYOffset - headerHeight - 20;
+
+        window.scrollTo({
+            top: targetPosition,
+            behavior: 'smooth'
         });
-    } else {
-        fallbackCopy(email);
-    }
+    });
 }
 
 function fallbackCopy(text) {

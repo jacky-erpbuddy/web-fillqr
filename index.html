@@ -327,8 +327,8 @@
                 <h2 class="section__title section__title--gradient">Interesse an <span>FillQR</span>?</h2>
                 <p class="section__subtitle">Wir richten FillQR persönlich für Ihren Verein ein – innerhalb von 1–2 Werktagen.</p>
 
-                <!-- Contact Options (Two Boxes) -->
-                <div class="contact-options">
+                <!-- Contact Options (Three Boxes) -->
+                <div class="contact-options contact-options--three">
                     <div class="contact-option">
                         <div class="contact-option__icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -337,8 +337,8 @@
                             </svg>
                         </div>
                         <h3>E-Mail kopieren</h3>
-                        <button class="btn btn--secondary btn--full" onclick="copyEmail()">info@erp-buddy.de kopieren</button>
-                        <p class="contact-option__hint">Für Gmail, Web.de, GMX &amp; Co.</p>
+                        <button id="copy-email-btn" class="btn btn--secondary btn--full">info@erp-buddy.de kopieren</button>
+                        <p class="contact-option__hint">Fuer Gmail, Web.de, GMX &amp; Co.</p>
                     </div>
                     <div class="contact-option">
                         <div class="contact-option__icon">
@@ -348,8 +348,22 @@
                             </svg>
                         </div>
                         <h3>Direkt per E-Mail</h3>
-                        <a href="mailto:info@erp-buddy.de?subject=[FillQR] Interesse" class="btn btn--gradient btn--full">E-Mail öffnen</a>
-                        <p class="contact-option__hint">Öffnet Ihr E-Mail-Programm</p>
+                        <a href="mailto:info@erp-buddy.de?subject=[FillQR] Interesse" class="btn btn--gradient btn--full">E-Mail oeffnen</a>
+                        <p class="contact-option__hint">Oeffnet Ihr E-Mail-Programm</p>
+                    </div>
+                    <div class="contact-option">
+                        <div class="contact-option__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                        </div>
+                        <h3>Kontaktformular</h3>
+                        <button id="scroll-to-form-btn" class="btn btn--secondary btn--full">Zum Formular</button>
+                        <p class="contact-option__hint">Direkt hier auf der Seite</p>
                     </div>
                 </div>
 

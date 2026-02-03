@@ -1083,6 +1083,11 @@ ul {
     .contact-options {
         grid-template-columns: repeat(2, 1fr);
     }
+
+    .contact-options--three {
+        grid-template-columns: repeat(3, 1fr);
+        max-width: 900px;
+    }
 }
 
 /* Contact Form Wrapper */
@@ -1305,6 +1310,43 @@ ul {
     background: rgba(220, 53, 69, 0.1);
     border: 1px solid #dc3545;
     color: #dc3545;
+}
+
+/* Privacy Checkbox */
+.contact__privacy {
+    margin-top: var(--spacing-sm);
+}
+
+.contact__checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+}
+
+.contact__checkbox input[type="checkbox"] {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    accent-color: var(--color-cyan);
+    cursor: pointer;
+}
+
+.contact__checkbox-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    text-align: left;
+}
+
+.contact__checkbox-text a {
+    color: var(--color-cyan);
+    text-decoration: underline;
+}
+
+.contact__checkbox-text a:hover {
+    color: var(--color-green);
 }
 
 /* ================================================
