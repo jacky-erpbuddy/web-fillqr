@@ -593,6 +593,31 @@ ul {
     border-left: 3px solid var(--color-text-muted);
 }
 
+.panel--info {
+    background: rgba(26, 26, 36, 0.5);
+    border-left: 3px solid var(--color-cyan);
+}
+
+.panel--info h3 {
+    color: var(--color-cyan);
+    font-size: var(--font-size-base);
+    margin-bottom: var(--spacing-xs);
+}
+
+.panel--info p {
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+}
+
+.panel--info a {
+    color: var(--color-cyan);
+    text-decoration: underline;
+}
+
+.panel--info a:hover {
+    color: var(--color-green);
+}
+
 .panel h3 {
     font-size: var(--font-size-lg);
     color: var(--color-text);
