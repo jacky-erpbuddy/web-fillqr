@@ -1,0 +1,173 @@
+FillQR – Offene Punkte – Version V0.1.2
+Stand: 04.12.2025, ca. 07:15 Uhr
+
+========================================
+Kapitel 1 – Formular & Geschäftslogik
+(Demo-Frontend + submit.php)
+========================================
+
+1.1 Serverseitige Validierung aufräumen
+Status: erledigt
+
+- Saubere Prüfung aller Pflichtfelder in submit.php:
+  Name, Geburtsdatum, Straße, PLZ, Ort, Telefon,
+  E-Mail, Mitgliedschaft, Eintrittstermin, Datenschutzerklärung.
+- Sinnvolle Fehlermeldungen werden gesammelt ($errors[])
+  und über $_SESSION['form_errors'] im Formular angezeigt.
+- Formularwerte werden bei Fehlern in $_SESSION['form_data']
+  gespeichert und in index.php wieder vorbefüllt
+  (inkl. Checkboxen und Select-Feldern).
+
+1.2 Geschäftsregeln ergänzen
+Status: erledigt (an SEPA-Entscheidung angepasst)
+
+- Alter wird aus dem Geburtsdatum berechnet.
+- Minderjährige:
+  - Wenn Alter < 18 → Checkbox „Ich bin minderjährig“ MUSS gesetzt sein
+    und Name des gesetzlichen Vertreters MUSS gefüllt sein.
+  - Wenn Checkbox gesetzt, aber kein Vertretername → Fehler.
+  - Wenn Alter >= 18 und Checkbox trotzdem gesetzt → nur Warnung.
+- Eintrittstermin:
+  - Erlaubte Tage je Tenant kommen aus app_getAllowedEntryDays().
+  - Serverseitige Prüfung: entry_date muss in der Zukunft liegen
+    UND auf einem erlaubten Tag.
+  - Sonst Fehler: „Der gewählte Eintrittstermin ist nicht gültig.“
+- SEPA (Mandat ist optional):
+  - SEPA-Checkbox nicht Pflicht.
+  - Wenn IBAN eingetragen, aber kein SEPA-Häkchen → Fehler.
+  - Wenn SEPA-Häkchen gesetzt → Kontoinhaber und IBAN Pflicht.
+  - IBAN wird per Mod-97 geprüft; BIC ist optional.
+  - Mandatsstatus wird in tbl_application über sepa_*-Felder
+    inkl. sepa_consent (Timestamp) gespeichert.
+
+1.3 Warn-Flags vorbereiten
+Status: teilweise erledigt
+
+- submit.php schreibt ein warnings-Array und setzt has_warnings
+  in tbl_application.
+- Die warnings werden zusätzlich im Event-Log
+  (tbl_application_event.event als JSON) mit gespeichert.
+- Noch offen:
+  - Warn-Codes sind noch nicht konsequent vereinheitlicht
+    (z. B. warn_minor, warn_invalid_entry_date, …).
+  - Admin-Ansicht nutzt die Warnungen noch nicht
+    (Anzeige folgt in Kapitel 2.3).
+
+========================================
+Kapitel 2 – Admin-Backend pro Verein
+========================================
+
+2.1 Statuswechsel im Admin (NEW/REVIEWED/EXPORTED/ARCHIVED)
+Status: offen
+
+- In admin/index.php und/oder admin/detail.php
+  Auswahlmöglichkeit für Status einbauen.
+- admin/update_status.php:
+  - Parameter prüfen (ID, neuer Status, CSRF-Token).
+  - Status in tbl_application aktualisieren.
+  - Zurück zur Liste bzw. Detailansicht weiterleiten.
+
+2.2 Filter & Suche
+Status: offen
+
+- Filter nach Status in admin/index.php sauber ausbauen.
+- Optional:
+  - Zeitraumfilter (von/bis Datum).
+  - Einfaches Suchfeld für Name / E-Mail.
+
+2.3 Warnungen anzeigen
+Status: offen
+
+- Anzeige von Warnungen im Admin:
+  - In der Liste ein kleines Icon/Label, wenn has_warnings = 1.
+  - In detail.php unter „Warnungen“ die Inhalte aus dem
+    letzten Event.warnings übersichtlich darstellen
+    (anstatt immer „Keine Warnungen markiert.“).
+
+========================================
+Kapitel 3 – Sicherheit & Datenschutz
+========================================
+
+3.1 Login über tbl_app_user
+Status: offen
+
+- Login-Formular (E-Mail + Passwort).
+- Passwörter mit password_hash / password_verify.
+- Rollen:
+  - admin (volle Rechte),
+  - editor (eingeschränkt, z. B. kein ARCHIVED/EXPORTED).
+
+3.2 Rechte & CSRF
+Status: offen
+
+- Zugriff auf admin/* nur mit gültiger Session.
+- CSRF-Token für kritische Aktionen:
+  - Statuswechsel,
+  - spätere Löschaktionen.
+
+3.3 Rate-Limiting / Schutz
+Status: offen
+
+- Einfaches Rate-Limit für Login (IP + Zeitfenster).
+- Optional: Rate-Limit für submit.php
+  zusätzlich zu reCAPTCHA.
+
+3.4 Logging & Aufräumen
+Status: offen
+
+- Fehlerlog:
+  - Entweder PHP-Error-Log im Variomedia-Panel,
+  - oder eigene Datei unter /storage/logs.
+- Anwendungslog für wichtige Aktionen:
+  - Login-Fehlschläge,
+  - Statuswechsel.
+- admin/ping.php:
+  - Entweder löschen,
+  - oder in eine kleine Health-Check-Seite umbauen
+    (nur mit Login erreichbar).
+- Altdateien/ungenutzte Skripte entfernen.
+
+========================================
+Kapitel 4 – Multi-Tenant-Cockpit (/xcockpit1)
+========================================
+
+4.1 Cockpit-Grundseite
+Status: offen
+
+- xcockpit1/public/index.php:
+  - Login (separat oder mit tbl_app_user-Rolle „owner“).
+  - Liste aller Tenants:
+    Name, Subdomain, Aktiv-Status,
+    Anzahl Anträge gesamt und in den letzten 30 Tagen.
+
+4.2 Einfaches Onboarding
+Status: offen
+
+- Formular „Neuen Verein anlegen“:
+  - Eintrag in tbl_tenant und tbl_tenant_domain.
+  - Standard-Mitgliedschaftstypen und Disziplinen
+    für den neuen Tenant anlegen.
+  - Erst-Admin-Benutzer in tbl_app_user erzeugen.
+
+========================================
+Kapitel 5 – Komfort & Branding
+========================================
+
+5.1 Branding je Verein
+Status: offen
+
+- Logo-Pfad pro Tenant (z. B. tbl_tenant.logo_path
+  oder Konvention unter /storage).
+- Tenant-spezifische CSS-Datei
+  (z. B. /storage/css/tenant_<id>.css).
+- Formular- und Admin-Layout ziehen Logo und Farben
+  aus diesen Einstellungen.
+
+5.2 Foto-Upload (Mitgliedsbild)
+Status: offen
+
+- Im Formular optionales Feld „Foto hochladen“.
+- Speicherung unter:
+  /storage/uploads/<tenant_id>/<application_id>/.
+- Pfad in tbl_application speichern.
+- Foto im Admin-Detail anzeigen.

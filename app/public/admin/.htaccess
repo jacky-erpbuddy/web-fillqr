@@ -1,0 +1,7 @@
+AuthType Basic
+AuthName "fillqr Demo Admin"
+AuthUserFile /homepages/u77196/fillqr/.htpasswd
+Require valid-user
+
+# kleiner Bonus: keine Verzeichnisliste
+Options -Indexes

@@ -1,0 +1,366 @@
+/* -------------------------------------------------------
+   FillQR Base Styles (mobile-first)
+   - Grundlayout & Typo
+   - Formularkomponenten
+   - Breakpoints & Darkmode
+-------------------------------------------------------- */
+
+/* Farb- und Layout-Variablen – können später per Tenant überschrieben werden */
+:root {
+  --color-primary:    #0d6efd;
+  --color-primary-dk: #0a58ca;
+  --color-border:     #d0d4dd;
+  --color-bg-page:    #f4f6fb;
+  --color-bg-card:    #ffffff;
+  --color-text-main:  #212529;
+  --color-text-muted: #6c757d;
+
+  --radius-card: 12px;
+  --radius-input: 6px;
+
+  --shadow-card: 0 6px 18px rgba(15, 23, 42, 0.08);
+
+  --space-page-y: 24px;
+  --space-page-x: 16px;
+}
+
+/* ------------ Basislayout (mobile) ------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: var(--space-page-y) var(--space-page-x);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  background: var(--color-bg-page);
+  color: var(--color-text-main);
+}
+
+.page {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-card);
+  padding: 24px 20px 28px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+}
+
+/* Kopfbereich mit Logo / Platzhalter */
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.logo-box {
+  flex-shrink: 0;
+}
+
+.logo {
+  max-height: 48px;
+  max-width: 160px;
+  object-fit: contain;
+  display: block;
+}
+
+.logo-placeholder {
+  min-width: 110px;
+  min-height: 48px;
+  border-radius: 8px;
+  border: 1px dashed var(--color-border);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  text-align: center;
+  padding: 8px;
+  color: var(--color-text-muted);
+  background: #fafbff;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+}
+
+.subtitle {
+  margin: 0 0 20px;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+/* ------------ Formulare / Felder ------------ */
+
+form {
+  display: block;
+}
+
+.section-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+/* mobile: alles untereinander, keine Flex-Reihen */
+.field--inline {
+  display: block;
+}
+
+.field__control {
+  width: 100%;
+}
+
+label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.required {
+  color: #d6336c;
+  margin-left: 2px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="date"],
+input[type="file"],
+select,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  border-radius: var(--radius-input);
+  border: 1px solid var(--color-border);
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="date"]:focus,
+input[type="file"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.help-text {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+}
+
+.checkbox-row input[type="checkbox"] {
+  margin-top: 3px;
+}
+
+/* Logische Blöcke im Formular (Angaben zur Person, Mitgliedschaft, SEPA, …) */
+.form-section {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.form-section--first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+
+/* ------------ Fehlermeldungs-Box ------------ */
+
+.error-box {
+  border-radius: 8px;
+  border: 1px solid #dc3545;
+  background: #fde2e4;
+  color: #721c24;
+  padding: 8px 10px;
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+}
+
+.error-box strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.error-box ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.error-box li {
+  margin: 0;
+  padding: 0;
+}
+
+/* ------------ Buttons & Aktionen ------------ */
+
+.actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-primary {
+  border: none;
+  border-radius: 999px;
+  padding: 9px 20px;
+  font: inherit;
+  font-weight: 600;
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 10px rgba(13, 110, 253, 0.35);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-dk);
+  box-shadow: 0 6px 14px rgba(13, 110, 253, 0.45);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+  box-shadow: 0 3px 8px rgba(13, 110, 253, 0.35);
+}
+
+.btn-primary span.icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Toggle-Button für Theme-Switch (Hell/Dunkel) */
+
+.theme-toggle {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.theme-toggle:hover {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+/* ------------------------------------------------
+   Breakpoints (mobile-first)
+   - sm:  ≥ 600px  (kleine Tablets / quer gehaltene Phones)
+   - md:  ≥ 900px  (Standard-Notebook)
+   - lg:  ≥ 1200px (breite Bildschirme)
+------------------------------------------------- */
+
+@media (min-width: 600px) {
+  .page {
+    max-width: 820px;
+  }
+
+  .field--inline {
+    display: flex;
+    gap: 12px;
+  }
+
+  .field--inline .field__control {
+    flex: 1;
+  }
+}
+
+@media (min-width: 900px) {
+  .page {
+    max-width: 960px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .page {
+    max-width: 1100px;
+  }
+}
+
+/* ---------------------------------------
+   Dark-Mode (per body.theme-dark)
+   --------------------------------------- */
+
+body.theme-dark {
+  color-scheme: dark;
+
+  /* neutrale Anthrazit-Töne statt Blau */
+  --color-bg-page:    #141414;  /* Seitenhintergrund */
+  --color-bg-card:    #1c1c1f;  /* Karte leicht heller abgesetzt */
+  --color-border:     #2a2a2e;
+  --color-text-main:  #f3f4f6;
+  --color-text-muted: #a1a1aa;
+
+  /* Primärfarbe kannst du ruhig blau lassen,
+     das gibt einen guten Kontrast im Dunkeln */
+  --color-primary:    #4f8dfd;
+  --color-primary-dk: #3b82f6;
+}
+
+/* Inputs im Dark Mode: mittleres Anthrazit,
+   damit man noch klar die Feldränder sieht */
+body.theme-dark input[type="text"],
+body.theme-dark input[type="email"],
+body.theme-dark input[type="date"],
+body.theme-dark input[type="file"],
+body.theme-dark select,
+body.theme-dark textarea {
+  background: #222225;
+  border-color: var(--color-border);
+  color: var(--color-text-main);
+}
+
+body.theme-dark input::placeholder,
+body.theme-dark textarea::placeholder {
+  color: #808089;
+}
+
+/* Card-Schatten im Dark Mode etwas softer */
+body.theme-dark .card {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}

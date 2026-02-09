@@ -1,0 +1,4 @@
+AuthType Basic
+AuthName "Geschuetzter Bereich - Nur fuer autorisierte Nutzer"
+AuthUserFile /homepages/u77196/fillqr/.htpasswd
+Require valid-user

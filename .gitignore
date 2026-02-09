@@ -1,0 +1,24 @@
+# FillQR
+.env
+.env.*
+*.env
+
+# Credentials (NIEMALS committen!)
+app/src/config.php
+
+# Uploads
+app/public/uploads/*
+!app/public/uploads/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temp
+*.tmp
+*.bak
