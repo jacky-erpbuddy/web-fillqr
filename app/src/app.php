@@ -3,8 +3,10 @@
 // ---------------------------------------------------------
 // Globale App-Konfiguration (MVP)
 // ---------------------------------------------------------
-const APP_RECAPTCHA_SITE_KEY = 'REMOVED_SITE_KEY';
-const APP_RECAPTCHA_SECRET   = 'REMOVED_SECRET_KEY';
+
+// Config zuerst laden (enthält DB + reCAPTCHA Credentials)
+require_once __DIR__.'/config.php';
+require_once __DIR__.'/tenant.php';
 
 /**
  * Liefert den reCAPTCHA-Site-Key für das Formular.
@@ -19,10 +21,6 @@ function app_getRecaptchaSiteKey(): string {
 function app_getRecaptchaSecret(): string {
     return APP_RECAPTCHA_SECRET;
 }
-
-
-require_once __DIR__.'/config.php';
-require_once __DIR__.'/tenant.php';
 
 /**
  * Liefert das komplette Tenant-Objekt für den aktuellen Host.
