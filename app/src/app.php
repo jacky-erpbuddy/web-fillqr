@@ -212,4 +212,19 @@ function app_getAllowedEntryDays(PDO $pdo, int $tenantId): array {
     return $days;
 }
 
+/**
+ * IBAN-Validierung per Mod-97 (ISO 13616).
+ * Akzeptiert Eingabe mit/ohne Leerzeichen, wandelt in Großbuchstaben um.
+ */
+function app_validateIBAN(string $iban): bool {
+    $iban = strtoupper(str_replace(' ', '', $iban));
+    if (strlen($iban) < 15 || strlen($iban) > 34) return false;
+    $moved = substr($iban, 4) . substr($iban, 0, 4);
+    $numeric = '';
+    for ($i = 0; $i < strlen($moved); $i++) {
+        $c = $moved[$i];
+        $numeric .= ctype_alpha($c) ? (ord($c) - 55) : $c;
+    }
+    return bcmod($numeric, '97') === '1';
+}
 

@@ -15,7 +15,7 @@ $tenantLogo = !empty($tenant['logo_path']) ? $tenant['logo_path'] : null;
 
 
 
-// CSRF-Token für Status-Formular vorbereiten
+// CSRF-Token vorbereiten
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -25,11 +25,11 @@ $csrfToken = $_SESSION['csrf_token'];
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) {
     http_response_code(400);
-    echo "Ungültige Antrags-ID.";
+    echo "Ungueltige Antrags-ID.";
     exit;
 }
 
-// Antrag für diesen Tenant laden
+// Antrag fuer diesen Tenant laden
 $stmt = $pdo->prepare("
     SELECT *
     FROM tbl_application
@@ -49,10 +49,18 @@ if (!$app) {
     exit;
 }
 
-// Vereinsname (für Kopf)
+// Vereinsname (fuer Kopf)
 $stmt = $pdo->prepare('SELECT name FROM tbl_tenant WHERE id = ?');
 $stmt->execute([$tenantId]);
 $tenantName = $stmt->fetchColumn() ?: 'Ihr Verein';
+
+// Dropdown-Daten laden: Mitgliedsarten
+$types = app_getMembershipTypes($pdo, $tenantId);
+
+// Dropdown-Daten laden: Disziplinen/Sparten
+$stmtD = $pdo->prepare("SELECT code, label FROM tbl_discipline WHERE tenant_id = ? AND active = 1 ORDER BY sort_no");
+$stmtD->execute([$tenantId]);
+$disciplines = $stmtD->fetchAll(PDO::FETCH_ASSOC);
 
 // Warnungen aus Event-Log nachladen (falls has_warnings = 1)
 $warnings = [];
@@ -78,12 +86,16 @@ if (!empty($app['has_warnings'])) {
     }
 }
 
-// Mapping Warn-Code → lesbarer Text
+// Mapping Warn-Code -> lesbarer Text
 $warningMessages = [
-    'birthdate_invalid'      => 'Geburtsdatum konnte nicht eindeutig ausgewertet werden – bitte prüfen.',
-    'minor_flag_maybe_wrong' => 'Checkbox „Ich bin minderjährig“ ist gesetzt, das berechnete Alter liegt aber bei mindestens 18 Jahren.',
-    'no_sepa_mandate'        => 'Es liegt kein SEPA-Lastschriftmandat vor – Beitragseinzug ggf. separat klären.',
+    'birthdate_invalid'      => 'Geburtsdatum konnte nicht eindeutig ausgewertet werden - bitte pruefen.',
+    'minor_flag_maybe_wrong' => 'Checkbox "Ich bin minderjaehrig" ist gesetzt, das berechnete Alter liegt aber bei mindestens 18 Jahren.',
+    'no_sepa_mandate'        => 'Es liegt kein SEPA-Lastschriftmandat vor - Beitragseinzug ggf. separat klaeren.',
 ];
+
+// Validierungsfehler aus Session holen (falls vorhanden)
+$updateErrors = $_SESSION['update_errors'] ?? [];
+unset($_SESSION['update_errors']);
 ?>
 <!doctype html>
 <html lang="de">
@@ -107,7 +119,45 @@ $warningMessages = [
       padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
     }
 
-    /* Kopfzeile mit Status / Form */
+    /* Formular-Inputs */
+    .edit-form input[type="text"],
+    .edit-form input[type="email"],
+    .edit-form input[type="date"],
+    .edit-form select,
+    .edit-form textarea {
+      padding: 6px 10px;
+      font: inherit;
+      font-size: var(--font-size-sm);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: rgba(26, 26, 36, 0.6);
+      color: var(--color-text);
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .edit-form input[type="text"]:focus,
+    .edit-form input[type="email"]:focus,
+    .edit-form input[type="date"]:focus,
+    .edit-form select:focus,
+    .edit-form textarea:focus {
+      outline: none;
+      border-color: var(--color-cyan);
+      box-shadow: 0 0 0 3px rgba(91, 203, 222, 0.15);
+    }
+
+    .edit-form textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    /* Pflichtfeld-Stern */
+    .required::after {
+      content: ' *';
+      color: #dc3545;
+    }
+
+    /* Status-Zeile */
     .status-row {
       display: flex;
       flex-wrap: wrap;
@@ -117,48 +167,49 @@ $warningMessages = [
       margin-bottom: var(--spacing-sm);
     }
 
-    .status-form {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 8px;
-      align-items: center;
-      font-size: 0.8rem;
-    }
-
-    .status-form label {
-      color: var(--color-text-muted);
-    }
-
-    .status-form select {
-      padding: 5px 8px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--color-border);
+    /* Speichern-Button */
+    .btn-save {
+      display: inline-block;
+      padding: 10px 28px;
       font: inherit;
       font-size: var(--font-size-sm);
-      background: rgba(26, 26, 36, 0.6);
-      color: var(--color-text);
-    }
-
-    .status-form select:focus {
-      outline: none;
-      border-color: var(--color-cyan);
-    }
-
-    .status-form button {
-      padding: 5px 14px;
+      font-weight: 600;
       border-radius: var(--radius-md);
       border: none;
       background: linear-gradient(135deg, var(--color-cyan) 0%, var(--color-green) 100%);
       color: var(--color-bg);
-      font-size: 0.8rem;
-      font-weight: 600;
       cursor: pointer;
       transition: all var(--transition-normal);
+      margin-top: var(--spacing-md);
     }
 
-    .status-form button:hover {
+    .btn-save:hover {
       box-shadow: 0 0 20px rgba(91, 203, 222, 0.4);
       transform: translateY(-1px);
+    }
+
+    /* Erfolgs- / Fehlermeldungen */
+    .success-box {
+      background: rgba(92, 184, 92, 0.15);
+      border: 1px solid var(--color-green);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-sm) var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+      color: var(--color-green);
+    }
+
+    .error-box {
+      background: rgba(220, 53, 69, 0.15);
+      border: 1px solid #dc3545;
+      border-radius: var(--radius-md);
+      padding: var(--spacing-sm) var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+      color: #dc3545;
+    }
+
+    .error-box ul {
+      margin: 4px 0 0 16px;
+      padding: 0;
     }
 
     /* Mobile Detail */
@@ -167,11 +218,6 @@ $warningMessages = [
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
-      }
-
-      .status-form {
-        width: 100%;
-        justify-content: flex-start;
       }
 
       dl {
@@ -196,7 +242,7 @@ $warningMessages = [
     <div class="header-row">
       <div>
         <div class="back-link">
-          &larr; <a href="index.php">Zurück zur Übersicht</a>
+          &larr; <a href="index.php">Zur&uuml;ck zur &Uuml;bersicht</a>
         </div>
 
         <h1>
@@ -207,7 +253,7 @@ $warningMessages = [
           Verein: <strong><?= htmlspecialchars($tenantName) ?></strong><br>
           Eingegangen am <?= htmlspecialchars($app['created_at'] ?? '') ?>
           <?php if (!empty($app['updated_at'])): ?>
-            · letzte Änderung <?= htmlspecialchars($app['updated_at']) ?>
+            &middot; letzte &Auml;nderung <?= htmlspecialchars($app['updated_at']) ?>
           <?php endif; ?>
         </p>
       </div>
@@ -219,7 +265,7 @@ $warningMessages = [
                style="display:block;max-width:130px;max-height:48px;border-radius:8px;">
         <?php else: ?>
           <div class="logo-placeholder">
-            Hier könnte<br>Ihr Logo<br>stehen
+            Hier k&ouml;nnte<br>Ihr Logo<br>stehen
           </div>
         <?php endif; ?>
       </div>
@@ -227,8 +273,22 @@ $warningMessages = [
 
     <div class="card card--admin">
 
-      <!-- Status-Block usw. wie gehabt -->
+      <?php if (isset($_GET['saved'])): ?>
+        <div class="success-box">&Auml;nderungen wurden gespeichert.</div>
+      <?php endif; ?>
 
+      <?php if (!empty($updateErrors)): ?>
+        <div class="error-box">
+          <strong>Fehler beim Speichern:</strong>
+          <ul>
+            <?php foreach ($updateErrors as $err): ?>
+              <li><?= htmlspecialchars($err) ?></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endif; ?>
+
+      <!-- Status-Anzeige (read-only Pill) -->
       <?php
         $pillClass = 'status-new';
         if (!empty($app['has_warnings'])) {
@@ -240,11 +300,11 @@ $warningMessages = [
           <span class="status-pill <?= $pillClass ?>">
             Status: <?= htmlspecialchars($app['status'] ?? '') ?>
             <?php if (!empty($app['has_warnings'])): ?>
-              · ⚠ Hinweise
+              &middot; Hinweise
             <?php endif; ?>
           </span>
           <?php if (!empty($app['is_minor'])): ?>
-            <span class="tag">Minderjährig</span>
+            <span class="tag">Minderj&auml;hrig</span>
           <?php endif; ?>
           <?php if (!empty($app['style'])): ?>
             <span class="tag">Sparte: <?= htmlspecialchars($app['style']) ?></span>
@@ -253,162 +313,240 @@ $warningMessages = [
             <span class="tag">Tarif: <?= htmlspecialchars($app['membership_type_code']) ?></span>
           <?php endif; ?>
         </p>
-
-        <form method="post" action="update_status.php" class="status-form">
-          <input type="hidden" name="id" value="<?= (int)$app['id'] ?>">
-          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
-          <label for="status-select">Status ändern:</label>
-          <select id="status-select" name="status">
-            <option value="new"      <?= $app['status'] === 'new'      ? 'selected' : '' ?>>Neu</option>
-            <option value="reviewed" <?= $app['status'] === 'reviewed' ? 'selected' : '' ?>>Geprüft</option>
-            <option value="exported" <?= $app['status'] === 'exported' ? 'selected' : '' ?>>Exportiert</option>
-            <option value="archived" <?= $app['status'] === 'archived' ? 'selected' : '' ?>>Archiviert</option>
-          </select>
-          <button type="submit">Speichern</button>
-        </form>
       </div>
 
-      <h2>Angaben zur Person</h2>
-      <dl>
-        <dt>Name</dt>
-        <dd><?= htmlspecialchars($app['full_name'] ?? '') ?></dd>
+      <!-- Hauptformular -->
+      <form method="post" action="update_application.php" class="edit-form">
+        <input type="hidden" name="id" value="<?= (int)$app['id'] ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
 
-        <dt>Geburtsdatum</dt>
-        <dd><?= htmlspecialchars($app['birthdate'] ?? '–') ?></dd>
+        <h2>Angaben zur Person</h2>
+        <dl>
+          <dt><label for="full_name" class="required">Name</label></dt>
+          <dd>
+            <input type="text" id="full_name" name="full_name"
+                   value="<?= htmlspecialchars($app['full_name'] ?? '') ?>" required>
+          </dd>
 
-        <dt>Adresse</dt>
-        <dd>
-          <?php if (!empty($app['street'])): ?>
-            <?= htmlspecialchars($app['street']) ?><br>
-          <?php endif; ?>
-          <?php if (!empty($app['zip']) || !empty($app['city'])): ?>
-            <?= htmlspecialchars(trim(($app['zip'] ?? '') . ' ' . ($app['city'] ?? ''))) ?>
-          <?php else: ?>
-            <span class="muted">–</span>
-          <?php endif; ?>
-        </dd>
+          <dt><label for="birthdate">Geburtsdatum</label></dt>
+          <dd>
+            <input type="date" id="birthdate" name="birthdate"
+                   value="<?= htmlspecialchars($app['birthdate'] ?? '') ?>">
+          </dd>
 
-        <dt>E-Mail</dt>
-        <dd>
-          <?php if (!empty($app['email'])): ?>
-            <a href="mailto:<?= htmlspecialchars($app['email']) ?>">
-              <?= htmlspecialchars($app['email']) ?>
-            </a>
-          <?php else: ?>
-            <span class="muted">–</span>
-          <?php endif; ?>
-        </dd>
+          <dt><label for="street">Stra&szlig;e</label></dt>
+          <dd>
+            <input type="text" id="street" name="street"
+                   value="<?= htmlspecialchars($app['street'] ?? '') ?>">
+          </dd>
 
-        <dt>Telefon</dt>
-        <dd><?= htmlspecialchars($app['phone'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
-      </dl>
+          <dt><label for="zip">PLZ</label></dt>
+          <dd>
+            <input type="text" id="zip" name="zip"
+                   value="<?= htmlspecialchars($app['zip'] ?? '') ?>">
+          </dd>
 
-      <h2>Gesetzlicher Vertreter</h2>
-      <dl>
-        <dt>Name</dt>
-        <dd><?= htmlspecialchars($app['guardian_name'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
+          <dt><label for="city">Ort</label></dt>
+          <dd>
+            <input type="text" id="city" name="city"
+                   value="<?= htmlspecialchars($app['city'] ?? '') ?>">
+          </dd>
 
-        <dt>Beziehung</dt>
-        <dd><?= htmlspecialchars($app['guardian_relation'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
+          <dt><label for="email" class="required">E-Mail</label></dt>
+          <dd>
+            <input type="email" id="email" name="email"
+                   value="<?= htmlspecialchars($app['email'] ?? '') ?>" required>
+          </dd>
 
-        <dt>E-Mail</dt>
-        <dd>
-          <?php if (!empty($app['guardian_email'])): ?>
-            <a href="mailto:<?= htmlspecialchars($app['guardian_email']) ?>">
-              <?= htmlspecialchars($app['guardian_email']) ?>
-            </a>
-          <?php else: ?>
-            <span class="muted">–</span>
-          <?php endif; ?>
-        </dd>
+          <dt><label for="phone">Telefon</label></dt>
+          <dd>
+            <input type="text" id="phone" name="phone"
+                   value="<?= htmlspecialchars($app['phone'] ?? '') ?>">
+          </dd>
+        </dl>
 
-        <dt>Telefon</dt>
-        <dd><?= htmlspecialchars($app['guardian_phone'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
-      </dl>
+        <h2>Gesetzlicher Vertreter</h2>
+        <dl>
+          <dt>Name</dt>
+          <dd><?= htmlspecialchars($app['guardian_name'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
 
+          <dt>Beziehung</dt>
+          <dd><?= htmlspecialchars($app['guardian_relation'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
 
-      
-      <h2>Mitgliedsfoto</h2>
-      <dl>
-        <dt>Foto</dt>
-        <dd>
-          <?php if (!empty($app['photo_path'])): ?>
-            <div class="member-photo">
-              <img
-                src="<?= htmlspecialchars('/' . ltrim($app['photo_path'], '/')) ?>"
-                alt="Mitgliedsfoto von <?= htmlspecialchars($app['full_name'] ?? '') ?>">
-            </div>
-          <?php else: ?>
-            <span class="muted">Kein Foto hinterlegt.</span>
-          <?php endif; ?>
-        </dd>
-      </dl>
+          <dt>E-Mail</dt>
+          <dd>
+            <?php if (!empty($app['guardian_email'])): ?>
+              <a href="mailto:<?= htmlspecialchars($app['guardian_email']) ?>">
+                <?= htmlspecialchars($app['guardian_email']) ?>
+              </a>
+            <?php else: ?>
+              <span class="muted">–</span>
+            <?php endif; ?>
+          </dd>
+
+          <dt>Telefon</dt>
+          <dd><?= htmlspecialchars($app['guardian_phone'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
+        </dl>
 
 
 
+        <h2>Mitgliedsfoto</h2>
+        <dl>
+          <dt>Foto</dt>
+          <dd>
+            <?php if (!empty($app['photo_path'])): ?>
+              <div class="member-photo">
+                <img
+                  src="<?= htmlspecialchars('/' . ltrim($app['photo_path'], '/')) ?>"
+                  alt="Mitgliedsfoto von <?= htmlspecialchars($app['full_name'] ?? '') ?>">
+              </div>
+            <?php else: ?>
+              <span class="muted">Kein Foto hinterlegt.</span>
+            <?php endif; ?>
+          </dd>
+        </dl>
 
-      <h2>Mitgliedschaft & Eintritt</h2>
-      <dl>
-        <dt>Disziplin / Sparte</dt>
-        <dd><?= htmlspecialchars($app['style'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
 
-        <dt>Mitgliedschaft</dt>
-        <dd><?= htmlspecialchars($app['membership_type_code'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
 
-        <dt>Eintrittstermin</dt>
-        <dd><?= htmlspecialchars($app['entry_date'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
-
-        <dt>Bemerkungen</dt>
-        <dd><?= nl2br(htmlspecialchars($app['remarks'] ?? '')) ?: '<span class="muted">–</span>' ?></dd>
-      </dl>
-
-      <h2>SEPA-Lastschrift</h2>
-      <dl>
-        <dt>Kontoinhaber</dt>
-        <dd><?= htmlspecialchars($app['sepa_account_holder'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
-
-        <dt>IBAN</dt>
-        <dd><?= htmlspecialchars($app['sepa_iban'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
-
-        <dt>BIC</dt>
-        <dd><?= htmlspecialchars($app['sepa_bic'] ?? '') ?: '<span class="muted">–</span>' ?></dd>
-
-        <dt>Mandat erteilt</dt>
-        <dd>
-          <?php if (!empty($app['sepa_consent'])): ?>
-            <?= htmlspecialchars($app['sepa_consent']) ?>
-          <?php else: ?>
-            <span class="muted">kein Mandat gespeichert</span>
-          <?php endif; ?>
-        </dd>
-      </dl>
-
-      <h2>System-Infos</h2>
-      <dl>
-        <dt>Interne ID</dt>
-        <dd><?= (int)$app['id'] ?></dd>
-
-        <dt>Tenant-ID</dt>
-        <dd><?= (int)$app['tenant_id'] ?></dd>
-
-        <dt>Warnungen</dt>
-        <dd>
-          <?php if (!empty($warnings)): ?>
-            <ul class="warn-list">
-              <?php foreach ($warnings as $code): ?>
-                <?php $text = $warningMessages[$code] ?? ('Unbekannte Warnung: ' . $code); ?>
-                <li><?= htmlspecialchars($text) ?></li>
+        <h2>Mitgliedschaft &amp; Eintritt</h2>
+        <dl>
+          <dt><label for="style">Disziplin / Sparte</label></dt>
+          <dd>
+            <select id="style" name="style">
+              <option value="">– bitte w&auml;hlen –</option>
+              <?php foreach ($disciplines as $disc): ?>
+                <option value="<?= htmlspecialchars($disc['code']) ?>"
+                  <?= ($app['style'] ?? '') === $disc['code'] ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($disc['label']) ?>
+                </option>
               <?php endforeach; ?>
-            </ul>
-          <?php elseif (!empty($app['has_warnings'])): ?>
-            <span class="muted">
-              Es liegen Warnungen vor, konnten aber nicht aus dem Event-Log gelesen werden.
-            </span>
-          <?php else: ?>
-            <span class="muted">Keine Warnungen markiert.</span>
-          <?php endif; ?>
-        </dd>
-      </dl>
+              <?php
+                // Falls aktueller Wert nicht in der Liste ist, trotzdem anzeigen
+                $styleInList = false;
+                foreach ($disciplines as $disc) {
+                    if ($disc['code'] === ($app['style'] ?? '')) { $styleInList = true; break; }
+                }
+                if (!$styleInList && !empty($app['style'])):
+              ?>
+                <option value="<?= htmlspecialchars($app['style']) ?>" selected>
+                  <?= htmlspecialchars($app['style']) ?> (nicht mehr aktiv)
+                </option>
+              <?php endif; ?>
+            </select>
+          </dd>
+
+          <dt><label for="membership_type_code">Mitgliedschaft</label></dt>
+          <dd>
+            <select id="membership_type_code" name="membership_type_code">
+              <option value="">– bitte w&auml;hlen –</option>
+              <?php foreach ($types as $type): ?>
+                <option value="<?= htmlspecialchars($type['code']) ?>"
+                  <?= ($app['membership_type_code'] ?? '') === $type['code'] ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($type['label']) ?>
+                  <?php if (!empty($type['price'])): ?>
+                    (<?= htmlspecialchars($type['price']) ?>)
+                  <?php endif; ?>
+                </option>
+              <?php endforeach; ?>
+              <?php
+                $mtInList = false;
+                foreach ($types as $type) {
+                    if ($type['code'] === ($app['membership_type_code'] ?? '')) { $mtInList = true; break; }
+                }
+                if (!$mtInList && !empty($app['membership_type_code'])):
+              ?>
+                <option value="<?= htmlspecialchars($app['membership_type_code']) ?>" selected>
+                  <?= htmlspecialchars($app['membership_type_code']) ?> (nicht mehr aktiv)
+                </option>
+              <?php endif; ?>
+            </select>
+          </dd>
+
+          <dt><label for="entry_date">Eintrittstermin</label></dt>
+          <dd>
+            <input type="date" id="entry_date" name="entry_date"
+                   value="<?= htmlspecialchars($app['entry_date'] ?? '') ?>">
+          </dd>
+
+          <dt><label for="remarks">Bemerkungen</label></dt>
+          <dd>
+            <textarea id="remarks" name="remarks"><?= htmlspecialchars($app['remarks'] ?? '') ?></textarea>
+          </dd>
+        </dl>
+
+        <h2>SEPA-Lastschrift</h2>
+        <dl>
+          <dt><label for="sepa_account_holder">Kontoinhaber</label></dt>
+          <dd>
+            <input type="text" id="sepa_account_holder" name="sepa_account_holder"
+                   value="<?= htmlspecialchars($app['sepa_account_holder'] ?? '') ?>">
+          </dd>
+
+          <dt><label for="sepa_iban">IBAN</label></dt>
+          <dd>
+            <input type="text" id="sepa_iban" name="sepa_iban"
+                   value="<?= htmlspecialchars($app['sepa_iban'] ?? '') ?>">
+          </dd>
+
+          <dt><label for="sepa_bic">BIC</label></dt>
+          <dd>
+            <input type="text" id="sepa_bic" name="sepa_bic"
+                   value="<?= htmlspecialchars($app['sepa_bic'] ?? '') ?>">
+          </dd>
+
+          <dt>Mandat erteilt</dt>
+          <dd>
+            <?php if (!empty($app['sepa_consent'])): ?>
+              <?= htmlspecialchars($app['sepa_consent']) ?>
+            <?php else: ?>
+              <span class="muted">kein Mandat gespeichert</span>
+            <?php endif; ?>
+          </dd>
+        </dl>
+
+        <h2>Status</h2>
+        <dl>
+          <dt><label for="status-select">Status</label></dt>
+          <dd>
+            <select id="status-select" name="status">
+              <option value="new"      <?= ($app['status'] ?? '') === 'new'      ? 'selected' : '' ?>>Neu</option>
+              <option value="reviewed" <?= ($app['status'] ?? '') === 'reviewed' ? 'selected' : '' ?>>Gepr&uuml;ft</option>
+              <option value="exported" <?= ($app['status'] ?? '') === 'exported' ? 'selected' : '' ?>>Exportiert</option>
+              <option value="archived" <?= ($app['status'] ?? '') === 'archived' ? 'selected' : '' ?>>Archiviert</option>
+            </select>
+          </dd>
+        </dl>
+
+        <h2>System-Infos</h2>
+        <dl>
+          <dt>Interne ID</dt>
+          <dd><?= (int)$app['id'] ?></dd>
+
+          <dt>Tenant-ID</dt>
+          <dd><?= (int)$app['tenant_id'] ?></dd>
+
+          <dt>Warnungen</dt>
+          <dd>
+            <?php if (!empty($warnings)): ?>
+              <ul class="warn-list">
+                <?php foreach ($warnings as $code): ?>
+                  <?php $text = $warningMessages[$code] ?? ('Unbekannte Warnung: ' . $code); ?>
+                  <li><?= htmlspecialchars($text) ?></li>
+                <?php endforeach; ?>
+              </ul>
+            <?php elseif (!empty($app['has_warnings'])): ?>
+              <span class="muted">
+                Es liegen Warnungen vor, konnten aber nicht aus dem Event-Log gelesen werden.
+              </span>
+            <?php else: ?>
+              <span class="muted">Keine Warnungen markiert.</span>
+            <?php endif; ?>
+          </dd>
+        </dl>
+
+        <button type="submit" class="btn-save">Speichern</button>
+      </form>
+
     </div>
   </div>
 </body>

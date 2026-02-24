@@ -1,4 +1,13 @@
-AuthType Basic
-AuthName "Geschuetzter Bereich - Nur fuer autorisierte Nutzer"
-AuthUserFile /homepages/u77196/fillqr/.htpasswd
-Require valid-user
+# fillQR App - Public
+# Basic Auth wurde entfernt — Formular ist oeffentlich zugaenglich.
+# Admin-Bereich hat eigene .htaccess mit Basic Auth.
+
+# --- Security Headers ---
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-src https://www.google.com; img-src 'self' data:; connect-src 'self'"
+</IfModule>

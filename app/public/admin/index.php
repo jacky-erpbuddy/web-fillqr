@@ -341,6 +341,10 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <body>
   <div class="page page--admin">
+    <nav class="admin-nav" style="display:flex;gap:16px;margin-bottom:var(--spacing-sm);font-size:0.85rem;">
+      <a href="index.php" style="color:var(--color-cyan);font-weight:600;">Anträge</a>
+      <a href="import.php" style="color:var(--color-text-muted);text-decoration:none;">CSV-Import</a>
+    </nav>
     <div class="header-row">
       <div>
         <h1>Mitgliedsanträge</h1>
