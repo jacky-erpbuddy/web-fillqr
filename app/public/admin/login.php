@@ -70,10 +70,10 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrfToken = $_SESSION['csrf_token'];
 
-// Tenant name for display
-$stmt = $pdo->prepare('SELECT name FROM tbl_tenant WHERE id = ?');
-$stmt->execute([$tenantId]);
-$tenantName = $stmt->fetchColumn() ?: 'Verein';
+// Tenant komplett laden (inkl. theme)
+$tenant     = app_getTenant($pdo);
+$tenantName = $tenant['name'] ?? 'Verein';
+$theme      = $tenant['theme'] ?? [];
 
 $pageTitle = 'Admin-Login — ' . $tenantName;
 ?>
@@ -84,13 +84,18 @@ $pageTitle = 'Admin-Login — ' . $tenantName;
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?= htmlspecialchars($pageTitle) ?></title>
   <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="stylesheet" href="/assets/css/base.css?v=3">
+  <link rel="stylesheet" href="/assets/css/base.css?v=7">
+  <?= app_getThemeStyleTag($theme) ?>
+<?php if (!empty($theme['default_theme']) && $theme['default_theme'] === 'light'): ?>
+  <script>try{if(!localStorage.getItem('fillqr-theme'))localStorage.setItem('fillqr-theme','light')}catch(e){}</script>
+<?php endif; ?>
 </head>
 <body>
+<script>(function(){var t;try{t=localStorage.getItem('fillqr-theme')}catch(e){}if(t==='light')document.body.classList.add('theme-light');})()</script>
   <div class="page" style="max-width: 440px; margin-top: 10vh;">
     <div class="card">
       <h1 style="text-align:center; margin-bottom: var(--spacing-md);">Admin-Login</h1>
-      <p class="subtitle" style="text-align:center;">
+      <p class="subtitle" style="text-align:center; font-size: 1.1rem;">
         <?= htmlspecialchars($tenantName) ?>
       </p>
 
@@ -128,5 +133,12 @@ $pageTitle = 'Admin-Login — ' . $tenantName;
       </form>
     </div>
   </div>
+
+  <!-- Theme Toggle -->
+  <button type="button" id="theme-toggle" class="theme-toggle theme-toggle-fixed" title="Hell / Dunkel">
+    <span class="theme-toggle__track"><span class="theme-toggle__thumb"></span></span>
+    <span class="theme-toggle__label"></span>
+  </button>
+  <script src="/assets/js/theme.js?v=7"></script>
 </body>
 </html>

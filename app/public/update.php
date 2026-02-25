@@ -274,13 +274,18 @@ $pageTitle = 'Daten aktualisieren – ' . ($tenant['name'] ?? 'Ihr Verein');
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?= htmlspecialchars($pageTitle) ?></title>
   <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="stylesheet" href="/assets/css/base.css?v=3">
+  <link rel="stylesheet" href="/assets/css/base.css?v=7">
+  <?= app_getThemeStyleTag($tenant['theme'] ?? []) ?>
+<?php if (!empty($tenant['theme']['default_theme']) && $tenant['theme']['default_theme'] === 'light'): ?>
+  <script>try{if(!localStorage.getItem('fillqr-theme'))localStorage.setItem('fillqr-theme','light')}catch(e){}</script>
+<?php endif; ?>
 <?php if ($token === '' && !$application): ?>
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <?php endif; ?>
 </head>
 
 <body>
+<script>(function(){var t;try{t=localStorage.getItem('fillqr-theme')}catch(e){}if(t==='light')document.body.classList.add('theme-light');})()</script>
   <div class="page">
     <div class="card">
 
@@ -429,5 +434,12 @@ $pageTitle = 'Daten aktualisieren – ' . ($tenant['name'] ?? 'Ihr Verein');
 
     </div>
   </div>
+
+  <!-- Theme Toggle -->
+  <button type="button" id="theme-toggle" class="theme-toggle theme-toggle-fixed" title="Hell / Dunkel">
+    <span class="theme-toggle__track"><span class="theme-toggle__thumb"></span></span>
+    <span class="theme-toggle__label"></span>
+  </button>
+  <script src="/assets/js/theme.js?v=7"></script>
 </body>
 </html>

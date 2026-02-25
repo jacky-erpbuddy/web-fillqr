@@ -6,12 +6,11 @@ session_start();
 $pdo      = db();
 $tenantId = resolveTenantIdByHost($pdo);
 
-// Tenant inkl. Logo laden
-$stmt = $pdo->prepare('SELECT name, logo_path FROM tbl_tenant WHERE id = ?');
-$stmt->execute([$tenantId]);
-$tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['name' => 'Ihr Verein', 'logo_path' => null];
+// Tenant komplett laden (inkl. theme + settings)
+$tenant     = app_getTenant($pdo);
 $tenantName = $tenant['name'] ?? 'Demo-Verein';
 $tenantLogo = !empty($tenant['logo_path']) ? $tenant['logo_path'] : null;
+$theme      = $tenant['theme'] ?? [];
 
 $recaptchaSiteKey = app_getRecaptchaSiteKey();
 
@@ -80,13 +79,17 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
   <title><?= htmlspecialchars($pageTitle) ?></title>
   <link rel="icon" type="image/png" href="/favicon.png">
 
-  <link rel="stylesheet" href="/assets/css/base.css?v=3">
+  <link rel="stylesheet" href="/assets/css/base.css?v=7">
+  <?= app_getThemeStyleTag($theme) ?>
+<?php if (!empty($theme['default_theme']) && $theme['default_theme'] === 'light'): ?>
+  <script>try{if(!localStorage.getItem('fillqr-theme'))localStorage.setItem('fillqr-theme','light')}catch(e){}</script>
+<?php endif; ?>
 
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 
-
 <body>
+<script>(function(){var t;try{t=localStorage.getItem('fillqr-theme')}catch(e){}if(t==='light')document.body.classList.add('theme-light');})()</script>
   <div class="page">
     <div class="card">
       <div class="header-row">
@@ -97,18 +100,14 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
             <span class="required">*</span> sind Pflichtfelder.
           </p>
         </div>
-        <div class="logo-box">
-          <div class="logo-placeholder">
-            Hier könnte<br>Ihr Logo<br>stehen
-          </div>
-
-          <!-- Theme-Toggle -->
-          <button type="button" id="theme-toggle" class="theme-toggle" title="Zwischen Hell und Dunkel wechseln">
-            <span class="theme-toggle__track">
-              <span class="theme-toggle__thumb"></span>
-            </span>
-            <span class="theme-toggle__label">Dunkel</span>
-          </button>
+        <div class="logo-box<?= ($theme['logo_variant'] ?? '') === 'dark' ? ' logo-on-dark' : '' ?>">
+          <?php if ($tenantLogo): ?>
+            <img src="<?= htmlspecialchars($tenantLogo) ?>" alt="<?= htmlspecialchars($tenantName) ?>" class="logo">
+          <?php else: ?>
+            <div class="logo-placeholder">
+              Hier könnte<br>Ihr Logo<br>stehen
+            </div>
+          <?php endif; ?>
         </div>
       </div>
 
@@ -401,40 +400,15 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
     </div>
   </div>
 
+  <!-- Theme Toggle (fixed bottom-right) -->
+  <button type="button" id="theme-toggle" class="theme-toggle theme-toggle-fixed" title="Hell / Dunkel">
+    <span class="theme-toggle__track"><span class="theme-toggle__thumb"></span></span>
+    <span class="theme-toggle__label"></span>
+  </button>
+  <script src="/assets/js/theme.js?v=7"></script>
+
   <script>
     document.addEventListener('DOMContentLoaded', function () {
-      
-      // --------------------------
-      // Theme-Toggle (Light/Dark)
-      // --------------------------
-      var body = document.body;
-      var toggle = document.getElementById('theme-toggle');
-      var toggleLabel = toggle ? toggle.querySelector('.theme-toggle__label') : null;
-      var storageKey = 'fillqr-theme';
-
-      function applyTheme(theme) {
-        if (theme === 'light') {
-          body.classList.add('theme-light');
-          if (toggle) toggle.classList.add('theme-toggle--light');
-          if (toggleLabel) toggleLabel.textContent = 'Hell';
-        } else {
-          body.classList.remove('theme-light');
-          if (toggle) toggle.classList.remove('theme-toggle--light');
-          if (toggleLabel) toggleLabel.textContent = 'Dunkel';
-        }
-      }
-
-      var stored = null;
-      try { stored = window.localStorage.getItem(storageKey); } catch (e) {}
-      applyTheme((stored === 'dark' || stored === 'light') ? stored : 'dark');
-
-      if (toggle) {
-        toggle.addEventListener('click', function () {
-          var next = body.classList.contains('theme-light') ? 'dark' : 'light';
-          applyTheme(next);
-          try { window.localStorage.setItem(storageKey, next); } catch (e) {}
-        });
-      }
 
       // --------------------------
       // Birthdate: Default to ~1990

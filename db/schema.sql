@@ -65,7 +65,7 @@ CREATE TABLE `tbl_application` (
   `tenant_id` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  `status` enum('new','reviewed','exported','archived') NOT NULL DEFAULT 'new',
+  `status` enum('new','reviewed','active','passive','resting','suspended','terminated','rejected','exported','archived') NOT NULL DEFAULT 'new',
   `has_warnings` tinyint(1) NOT NULL DEFAULT '0',
   `full_name` varchar(120) NOT NULL,
   `email` varchar(190) NOT NULL,

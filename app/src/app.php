@@ -213,6 +213,59 @@ function app_getAllowedEntryDays(PDO $pdo, int $tenantId): array {
 }
 
 /**
+ * Generates a <style> tag with CSS custom property overrides from tenant theme.
+ * Maps theme_json keys to CSS variables for tenant-specific branding.
+ */
+function app_getThemeStyleTag(array $theme): string {
+    $mapping = [
+        'accent'           => '--color-cyan',
+        'accent_secondary' => '--color-green',
+        'primary'          => '--color-primary',
+    ];
+
+    $vars = [];
+    foreach ($mapping as $key => $cssVar) {
+        if (!empty($theme[$key]) && preg_match('/^#[0-9a-fA-F]{3,8}$/', $theme[$key])) {
+            $vars[] = $cssVar . ':' . htmlspecialchars($theme[$key], ENT_QUOTES);
+        }
+    }
+
+    if (empty($vars)) {
+        return '';
+    }
+
+    $varStr = implode(';', $vars);
+    return '<style>:root{' . $varStr . '}body.theme-light{' . $varStr . '}</style>';
+}
+
+/**
+ * Zentrale Status-Map: interner Wert → deutscher Anzeigename.
+ * Definiert alle erlaubten Status-Werte für tbl_application.
+ */
+function app_getStatusMap(): array {
+    return [
+        'new'        => 'Neu',
+        'reviewed'   => 'Geprüft',
+        'active'     => 'Aktiv',
+        'passive'    => 'Passiv',
+        'resting'    => 'Ruhend',
+        'suspended'  => 'Gesperrt',
+        'terminated' => 'Gekündigt',
+        'rejected'   => 'Abgelehnt',
+        'exported'   => 'Exportiert',
+        'archived'   => 'Archiviert',
+    ];
+}
+
+/**
+ * Gibt das deutsche Label für einen Status-Wert zurück.
+ */
+function app_getStatusLabel(string $status): string {
+    $map = app_getStatusMap();
+    return $map[$status] ?? $status;
+}
+
+/**
  * IBAN-Validierung per Mod-97 (ISO 13616).
  * Akzeptiert Eingabe mit/ohne Leerzeichen, wandelt in Großbuchstaben um.
  */

@@ -8,12 +8,11 @@ $tenantId = resolveTenantIdByHost($pdo);
 
 require_once __DIR__ . '/auth.php';
 
-// Tenant inkl. Logo laden
-$stmt = $pdo->prepare('SELECT name, logo_path FROM tbl_tenant WHERE id = ?');
-$stmt->execute([$tenantId]);
-$tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['name' => 'Ihr Verein', 'logo_path' => null];
+// Tenant komplett laden (inkl. theme + settings)
+$tenant     = app_getTenant($pdo);
 $tenantName = $tenant['name'] ?? 'Demo-Verein';
 $tenantLogo = !empty($tenant['logo_path']) ? $tenant['logo_path'] : null;
+$theme      = $tenant['theme'] ?? [];
 
 // CSRF-Token vorbereiten
 if (empty($_SESSION['csrf_token'])) {
@@ -247,13 +246,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <title>CSV-Import – <?= htmlspecialchars($tenantName) ?></title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
+  <link rel="icon" type="image/png" href="/favicon.png">
+
   <!-- gemeinsame Basis-Styles -->
-  <link rel="stylesheet" href="/assets/css/base.css?v=2">
+  <link rel="stylesheet" href="/assets/css/base.css?v=7">
+  <?= app_getThemeStyleTag($theme) ?>
+<?php if (!empty($theme['default_theme']) && $theme['default_theme'] === 'light'): ?>
+  <script>try{if(!localStorage.getItem('fillqr-theme'))localStorage.setItem('fillqr-theme','light')}catch(e){}</script>
+<?php endif; ?>
 
   <!-- Import-spezifische Styles -->
   <style>
     .page--admin {
-      max-width: 980px;
+      max-width: 1280px;
       margin: 0 auto;
     }
 
@@ -275,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     .btn-small:hover {
-      box-shadow: 0 0 20px rgba(91, 203, 222, 0.4);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--color-cyan) 40%, transparent);
       transform: translateY(-1px);
     }
 
@@ -354,7 +359,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     tbody tr:hover {
-      background: rgba(91, 203, 222, 0.05);
+      background: color-mix(in srgb, var(--color-cyan) 5%, transparent);
     }
 
     /* Fehler/Erfolg */
@@ -366,20 +371,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     .alert--error {
-      background: rgba(255, 85, 85, 0.1);
-      border: 1px solid rgba(255, 85, 85, 0.3);
-      color: #ff5555;
+      background: rgba(220, 53, 69, 0.1);
+      border: 1px solid var(--color-danger);
+      color: var(--color-danger);
     }
 
     .alert--success {
-      background: rgba(91, 222, 130, 0.1);
-      border: 1px solid rgba(91, 222, 130, 0.3);
+      background: color-mix(in srgb, var(--color-green) 10%, transparent);
+      border: 1px solid var(--color-green);
       color: var(--color-green);
     }
 
     .alert--info {
-      background: rgba(91, 203, 222, 0.1);
-      border: 1px solid rgba(91, 203, 222, 0.3);
+      background: color-mix(in srgb, var(--color-cyan) 10%, transparent);
+      border: 1px solid var(--color-cyan);
       color: var(--color-cyan);
     }
 
@@ -417,10 +422,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 
 <body>
+<script>(function(){var t;try{t=localStorage.getItem('fillqr-theme')}catch(e){}if(t==='light')document.body.classList.add('theme-light');})()</script>
   <div class="page page--admin">
 
     <nav class="admin-nav" style="display:flex;gap:16px;margin-bottom:var(--spacing-sm);font-size:0.85rem;">
-      <a href="index.php" style="color:var(--color-text-muted);text-decoration:none;">Anträge</a>
+      <a href="index.php" style="color:var(--color-text-muted);text-decoration:none;">Mitglieder</a>
       <a href="import.php" style="color:var(--color-cyan);font-weight:600;">CSV-Import</a>
     </nav>
 
@@ -432,11 +438,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           Mitgliederdaten per CSV-Datei importieren.
         </p>
       </div>
-      <div class="header-right">
+      <div class="logo-box<?= ($theme['logo_variant'] ?? '') === 'dark' ? ' logo-on-dark' : '' ?>">
         <?php if ($tenantLogo): ?>
-          <img src="<?= htmlspecialchars($tenantLogo) ?>"
-               alt="Vereinslogo"
-               style="display:block;max-width:130px;max-height:48px;border-radius:8px;">
+          <img src="<?= htmlspecialchars($tenantLogo) ?>" alt="<?= htmlspecialchars($tenantName) ?>" class="logo">
         <?php else: ?>
           <div class="logo-placeholder">
             Hier könnte<br>Ihr Logo<br>stehen
@@ -534,7 +538,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <?php if ($imported > 0): ?>
           <div class="alert alert--success">
-            <?= $imported ?> Mitglied<?= $imported !== 1 ? 'er' : '' ?> erfolgreich importiert (Status: reviewed).
+            <?= $imported ?> Mitglied<?= $imported !== 1 ? 'er' : '' ?> erfolgreich importiert (Status: Geprüft).
           </div>
         <?php endif; ?>
 
@@ -576,5 +580,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     </div>
   </div>
+
+  <!-- Theme Toggle -->
+  <button type="button" id="theme-toggle" class="theme-toggle theme-toggle-fixed" title="Hell / Dunkel">
+    <span class="theme-toggle__track"><span class="theme-toggle__thumb"></span></span>
+    <span class="theme-toggle__label"></span>
+  </button>
+  <script src="/assets/js/theme.js?v=7"></script>
 </body>
 </html>

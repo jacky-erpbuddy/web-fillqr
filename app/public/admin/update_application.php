@@ -84,8 +84,8 @@ if ($input['sepa_iban'] !== '' && !app_validateIBAN($input['sepa_iban'])) {
     $errors[] = 'IBAN ist ungueltig (Mod-97 Pruefung fehlgeschlagen).';
 }
 
-// Status: nur erlaubte Werte
-$allowedStatuses = ['new', 'reviewed', 'exported', 'archived'];
+// Status: nur erlaubte Werte (aus zentraler Map)
+$allowedStatuses = array_keys(app_getStatusMap());
 if ($input['status'] !== '' && !in_array($input['status'], $allowedStatuses, true)) {
     $errors[] = 'Ungueltiger Status.';
 }

@@ -8,21 +8,20 @@ $tenantId = resolveTenantIdByHost($pdo);
 
 require_once __DIR__ . '/auth.php';
 
-// Tenant inkl. Logo laden
-$stmt = $pdo->prepare('SELECT name, logo_path FROM tbl_tenant WHERE id = ?');
-$stmt->execute([$tenantId]);
-$tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['name' => 'Ihr Verein', 'logo_path' => null];
+// Tenant komplett laden (inkl. theme + settings)
+$tenant     = app_getTenant($pdo);
 $tenantName = $tenant['name'] ?? 'Demo-Verein';
 $tenantLogo = !empty($tenant['logo_path']) ? $tenant['logo_path'] : null;
+$theme      = $tenant['theme'] ?? [];
 
 // --------------------------------------------------
 // Filter aus GET lesen
 // --------------------------------------------------
 
-// Status-Filter
+// Status-Filter (aus zentraler Map)
+$statusMap     = app_getStatusMap();
 $statusFilter  = $_GET['status'] ?? '';
-$allowedStatus = ['new', 'reviewed', 'exported', 'archived'];
-$filterStatus  = in_array($statusFilter, $allowedStatus, true) ? $statusFilter : '';
+$filterStatus  = array_key_exists($statusFilter, $statusMap) ? $statusFilter : '';
 
 // Zeitraum-Filter (YYYY-MM-DD)
 $dateFrom = trim($_GET['date_from'] ?? '');
@@ -34,38 +33,18 @@ $search = trim($_GET['search'] ?? '');
 // --------------------------------------------------
 // SQL mit optionalen Filtern aufbauen
 // --------------------------------------------------
-$sql = "
-    SELECT
-        id,
-        created_at,
-        status,
-        full_name,
-        email,
-        phone,
-        birthdate,
-        street,
-        zip,
-        city,
-        style,
-        membership_type_code,
-        entry_date,
-        is_minor,
-        has_warnings
-    FROM tbl_application
-    WHERE tenant_id = :tenant_id
-";
-
+$whereExtra = '';
 $params = [':tenant_id' => $tenantId];
 
 // Statusfilter
 if ($filterStatus !== '') {
-    $sql .= " AND status = :status";
+    $whereExtra .= " AND status = :status";
     $params[':status'] = $filterStatus;
 }
 
 // Zeitraumfilter
 if ($dateFrom !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
-    $sql .= " AND created_at >= :date_from";
+    $whereExtra .= " AND created_at >= :date_from";
     $params[':date_from'] = $dateFrom . ' 00:00:00';
 }
 
@@ -73,18 +52,39 @@ if ($dateTo !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
     $dt = DateTime::createFromFormat('Y-m-d', $dateTo);
     if ($dt) {
         $dt->modify('+1 day');
-        $sql .= " AND created_at < :date_to";
+        $whereExtra .= " AND created_at < :date_to";
         $params[':date_to'] = $dt->format('Y-m-d') . ' 00:00:00';
     }
 }
 
 // Suche in Name/E-Mail
 if ($search !== '') {
-    $sql .= " AND (full_name LIKE :search OR email LIKE :search)";
+    $whereExtra .= " AND (full_name LIKE :search OR email LIKE :search)";
     $params[':search'] = '%' . $search . '%';
 }
 
-$sql .= " ORDER BY created_at DESC LIMIT 50";
+// Gesamtzahl für Paginierung
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_application WHERE tenant_id = :tenant_id" . $whereExtra);
+$countStmt->execute($params);
+$total = (int)$countStmt->fetchColumn();
+
+// Paginierung
+$perPage    = 50;
+$page       = max(1, (int)($_GET['page'] ?? 1));
+$totalPages = max(1, (int)ceil($total / $perPage));
+if ($page > $totalPages) $page = $totalPages;
+$offset = ($page - 1) * $perPage;
+
+// Hauptabfrage mit LIMIT/OFFSET
+$sql = "
+    SELECT id, created_at, status, full_name, email, phone, birthdate,
+           street, zip, city, style, membership_type_code, entry_date,
+           is_minor, has_warnings
+    FROM tbl_application
+    WHERE tenant_id = :tenant_id" . $whereExtra . "
+    ORDER BY created_at DESC
+    LIMIT $perPage OFFSET $offset
+";
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -94,18 +94,22 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Mitgliedsanträge – <?= htmlspecialchars($tenantName) ?></title>
+  <title>Mitglieder – <?= htmlspecialchars($tenantName) ?></title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/png" href="/favicon.png">
 
   <!-- gemeinsame Basis-Styles -->
-  <link rel="stylesheet" href="/assets/css/base.css?v=3">
+  <link rel="stylesheet" href="/assets/css/base.css?v=7">
+  <?= app_getThemeStyleTag($theme) ?>
+<?php if (!empty($theme['default_theme']) && $theme['default_theme'] === 'light'): ?>
+  <script>try{if(!localStorage.getItem('fillqr-theme'))localStorage.setItem('fillqr-theme','light')}catch(e){}</script>
+<?php endif; ?>
 
   <!-- Admin-spezifische Styles – bauen auf base.css auf -->
   <style>
     /* Seite etwas breiter als das Formular */
     .page--admin {
-      max-width: 980px;
+      max-width: 1280px;
       margin: 0 auto;
     }
 
@@ -142,19 +146,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
       padding: 6px 10px;
       font: inherit;
       font-size: var(--font-size-sm);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--color-border);
-      background: rgba(26, 26, 36, 0.6);
-      color: var(--color-text);
       min-width: 120px;
-    }
-
-    .filter-bar select:focus,
-    .filter-bar input[type="date"]:focus,
-    .filter-bar input[type="text"]:focus {
-      outline: none;
-      border-color: var(--color-cyan);
-      box-shadow: 0 0 0 3px rgba(91, 203, 222, 0.15);
     }
 
     .btn-small {
@@ -171,7 +163,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     .btn-small:hover {
-      box-shadow: 0 0 20px rgba(91, 203, 222, 0.4);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--color-cyan) 40%, transparent);
       transform: translateY(-1px);
     }
 
@@ -221,7 +213,28 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     tbody tr:hover {
-      background: rgba(91, 203, 222, 0.05);
+      background: color-mix(in srgb, var(--color-cyan) 5%, transparent);
+    }
+
+    /* Paginierung */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: var(--spacing-md);
+      padding-top: var(--spacing-sm);
+      border-top: 1px solid var(--color-border);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+    }
+    .pagination a {
+      color: var(--color-cyan);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .pagination a:hover {
+      color: var(--color-green);
     }
 
     /* Standard: Desktop-Tabelle, Mobile-Karten verstecken */
@@ -343,9 +356,10 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </head>
 
 <body>
+<script>(function(){var t;try{t=localStorage.getItem('fillqr-theme')}catch(e){}if(t==='light')document.body.classList.add('theme-light');})()</script>
   <div class="page page--admin">
     <nav class="admin-nav" style="display:flex;gap:16px;align-items:center;margin-bottom:var(--spacing-sm);font-size:0.85rem;">
-      <a href="index.php" style="color:var(--color-cyan);font-weight:600;">Anträge</a>
+      <a href="index.php" style="color:var(--color-cyan);font-weight:600;">Mitglieder</a>
       <a href="import.php" style="color:var(--color-text-muted);text-decoration:none;">CSV-Import</a>
       <span style="flex:1;"></span>
       <span style="color:var(--color-text-muted);font-size:0.8rem;"><?= htmlspecialchars($_SESSION['admin_email'] ?? '') ?></span>
@@ -353,17 +367,18 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </nav>
     <div class="header-row">
       <div>
-        <h1>Mitgliedsanträge</h1>
+        <h1>Mitglieder</h1>
         <p class="subtitle">
-          Verein: <strong><?= htmlspecialchars($tenantName) ?></strong> –
-          es werden die letzten 50 Anträge (nach Filtern) angezeigt.
+          Verein: <strong><?= htmlspecialchars($tenantName) ?></strong>
+          <?php if ($total > 0): ?>
+            – <?= $total ?> Mitglied<?= $total === 1 ? '' : 'er' ?> gefunden
+            <?php if ($totalPages > 1): ?>(Seite <?= $page ?> von <?= $totalPages ?>)<?php endif; ?>
+          <?php endif; ?>
         </p>
       </div>
-      <div class="header-right">
+      <div class="logo-box<?= ($theme['logo_variant'] ?? '') === 'dark' ? ' logo-on-dark' : '' ?>">
         <?php if ($tenantLogo): ?>
-          <img src="<?= htmlspecialchars($tenantLogo) ?>"
-               alt="Vereinslogo"
-               style="display:block;max-width:130px;max-height:48px;border-radius:8px;">
+          <img src="<?= htmlspecialchars($tenantLogo) ?>" alt="<?= htmlspecialchars($tenantName) ?>" class="logo">
         <?php else: ?>
           <div class="logo-placeholder">
             Hier könnte<br>Ihr Logo<br>stehen
@@ -380,10 +395,9 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
           <label for="status">Status</label>
           <select id="status" name="status">
             <option value="">Alle</option>
-            <option value="new"      <?= $filterStatus === 'new'      ? 'selected' : '' ?>>Neu</option>
-            <option value="reviewed" <?= $filterStatus === 'reviewed' ? 'selected' : '' ?>>Geprüft</option>
-            <option value="exported" <?= $filterStatus === 'exported' ? 'selected' : '' ?>>Exportiert</option>
-            <option value="archived" <?= $filterStatus === 'archived' ? 'selected' : '' ?>>Archiviert</option>
+            <?php foreach ($statusMap as $val => $label): ?>
+              <option value="<?= $val ?>" <?= $filterStatus === $val ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+            <?php endforeach; ?>
           </select>
         </div>
 
@@ -437,7 +451,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $status   = (string)$row['status'];
                 $hasWarn  = !empty($row['has_warnings']);
                 $isMinor  = !empty($row['is_minor']);
-                $pillClass = $hasWarn ? 'status-warn' : 'status-new';
+                $pillClass = $hasWarn ? 'status-warn' : 'status-' . $status;
               ?>
 
               <!-- Desktop-Zeile -->
@@ -448,13 +462,13 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   </a>
                 </td>
                 <td class="nowrap">
-                  <?= htmlspecialchars(substr($row['created_at'], 0, 16)) ?>
+                  <?= date('d.m.Y H:i', strtotime($row['created_at'])) ?>
                 </td>
                 <td>
                   <span class="status-pill <?= $pillClass ?>">
-                    <?= htmlspecialchars($status) ?>
+                    <?= htmlspecialchars(app_getStatusLabel($status)) ?>
                     <?php if ($hasWarn): ?>
-                      · ⚠ Hinweise
+                      · Hinweise
                     <?php endif; ?>
                   </span>
 
@@ -466,7 +480,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                   <strong><?= htmlspecialchars($row['full_name']) ?></strong>
                   <?php if (!empty($row['birthdate'])): ?>
                     <div class="muted">
-                      geb. <?= htmlspecialchars($row['birthdate']) ?>
+                      geb. <?= date('d.m.Y', strtotime($row['birthdate'])) ?>
                     </div>
                   <?php endif; ?>
                 </td>
@@ -502,7 +516,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </td>
                 <td class="nowrap">
                   <?php if (!empty($row['entry_date'])): ?>
-                    <?= htmlspecialchars($row['entry_date']) ?>
+                    <?= date('d.m.Y', strtotime($row['entry_date'])) ?>
                   <?php else: ?>
                     <span class="muted">–</span>
                   <?php endif; ?>
@@ -519,9 +533,9 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="app-card-top">
                       <span class="app-card-id">#<?= $rowId ?></span>
                       <span class="status-pill <?= $pillClass ?>">
-                        <?= htmlspecialchars($status) ?>
+                        <?= htmlspecialchars(app_getStatusLabel($status)) ?>
                         <?php if ($hasWarn): ?>
-                          · ⚠ Hinweise
+                          · Hinweise
                         <?php endif; ?>
                       </span>
                     </div>
@@ -531,7 +545,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                       <?php if (!empty($row['birthdate']) || $isMinor): ?>
                         <div class="muted">
                           <?php if (!empty($row['birthdate'])): ?>
-                            geb. <?= htmlspecialchars($row['birthdate']) ?>
+                            geb. <?= date('d.m.Y', strtotime($row['birthdate'])) ?>
                           <?php endif; ?>
                           <?php if ($isMinor): ?>
                             <?= !empty($row['birthdate']) ? ' · ' : '' ?>Minderjährig
@@ -541,9 +555,9 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </div>
 
                     <div class="app-card-meta">
-                      <span><?= htmlspecialchars(substr($row['created_at'], 0, 16)) ?></span>
+                      <span><?= date('d.m.Y H:i', strtotime($row['created_at'])) ?></span>
                       <?php if (!empty($row['entry_date'])): ?>
-                        <span>Eintritt: <?= htmlspecialchars($row['entry_date']) ?></span>
+                        <span>Eintritt: <?= date('d.m.Y', strtotime($row['entry_date'])) ?></span>
                       <?php endif; ?>
                     </div>
 
@@ -591,8 +605,28 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </tbody>
           </table>
         </div>
+
+        <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+          <?php if ($page > 1): ?>
+            <a href="?<?= htmlspecialchars(http_build_query(array_merge($_GET, ['page' => $page - 1]))) ?>">&larr; Zurück</a>
+          <?php endif; ?>
+          <span>Seite <?= $page ?> von <?= $totalPages ?></span>
+          <?php if ($page < $totalPages): ?>
+            <a href="?<?= htmlspecialchars(http_build_query(array_merge($_GET, ['page' => $page + 1]))) ?>">Weiter &rarr;</a>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
       <?php endif; ?>
     </div>
   </div>
+
+  <!-- Theme Toggle -->
+  <button type="button" id="theme-toggle" class="theme-toggle theme-toggle-fixed" title="Hell / Dunkel">
+    <span class="theme-toggle__track"><span class="theme-toggle__thumb"></span></span>
+    <span class="theme-toggle__label"></span>
+  </button>
+  <script src="/assets/js/theme.js?v=7"></script>
 </body>
 </html>

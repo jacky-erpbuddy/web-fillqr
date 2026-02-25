@@ -8,12 +8,11 @@ $tenantId = resolveTenantIdByHost($pdo);
 
 require_once __DIR__ . '/auth.php';
 
-// Tenant inkl. Logo laden
-$stmt = $pdo->prepare('SELECT name, logo_path FROM tbl_tenant WHERE id = ?');
-$stmt->execute([$tenantId]);
-$tenant = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['name' => 'Ihr Verein', 'logo_path' => null];
+// Tenant komplett laden (inkl. theme + settings)
+$tenant     = app_getTenant($pdo);
 $tenantName = $tenant['name'] ?? 'Demo-Verein';
 $tenantLogo = !empty($tenant['logo_path']) ? $tenant['logo_path'] : null;
+$theme      = $tenant['theme'] ?? [];
 
 
 
@@ -50,11 +49,6 @@ if (!$app) {
     echo "Antrag wurde nicht gefunden.";
     exit;
 }
-
-// Vereinsname (fuer Kopf)
-$stmt = $pdo->prepare('SELECT name FROM tbl_tenant WHERE id = ?');
-$stmt->execute([$tenantId]);
-$tenantName = $stmt->fetchColumn() ?: 'Ihr Verein';
 
 // Dropdown-Daten laden: Mitgliedsarten
 $types = app_getMembershipTypes($pdo, $tenantId);
@@ -103,12 +97,18 @@ unset($_SESSION['update_errors']);
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Antrag #<?= (int)$app['id'] ?> – <?= htmlspecialchars($tenantName) ?></title>
+  <title>Mitglied #<?= (int)$app['id'] ?> – <?= htmlspecialchars($tenantName) ?></title>
 
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
+  <link rel="icon" type="image/png" href="/favicon.png">
+
   <!-- gemeinsame Basis-Styles -->
-  <link rel="stylesheet" href="/assets/css/base.css?v=2">
+  <link rel="stylesheet" href="/assets/css/base.css?v=7">
+  <?= app_getThemeStyleTag($theme) ?>
+<?php if (!empty($theme['default_theme']) && $theme['default_theme'] === 'light'): ?>
+  <script>try{if(!localStorage.getItem('fillqr-theme'))localStorage.setItem('fillqr-theme','light')}catch(e){}</script>
+<?php endif; ?>
 
   <!-- Detail-spezifische Styles -->
   <style>
@@ -121,31 +121,13 @@ unset($_SESSION['update_errors']);
       padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
     }
 
-    /* Formular-Inputs */
+    /* Formular-Inputs (rely on base.css for bg/color/border) */
     .edit-form input[type="text"],
     .edit-form input[type="email"],
     .edit-form input[type="date"],
     .edit-form select,
     .edit-form textarea {
       padding: 6px 10px;
-      font: inherit;
-      font-size: var(--font-size-sm);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--color-border);
-      background: rgba(26, 26, 36, 0.6);
-      color: var(--color-text);
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    .edit-form input[type="text"]:focus,
-    .edit-form input[type="email"]:focus,
-    .edit-form input[type="date"]:focus,
-    .edit-form select:focus,
-    .edit-form textarea:focus {
-      outline: none;
-      border-color: var(--color-cyan);
-      box-shadow: 0 0 0 3px rgba(91, 203, 222, 0.15);
     }
 
     .edit-form textarea {
@@ -186,13 +168,13 @@ unset($_SESSION['update_errors']);
     }
 
     .btn-save:hover {
-      box-shadow: 0 0 20px rgba(91, 203, 222, 0.4);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--color-cyan) 40%, transparent);
       transform: translateY(-1px);
     }
 
     /* Erfolgs- / Fehlermeldungen */
     .success-box {
-      background: rgba(92, 184, 92, 0.15);
+      background: color-mix(in srgb, var(--color-green) 15%, transparent);
       border: 1px solid var(--color-green);
       border-radius: var(--radius-md);
       padding: var(--spacing-sm) var(--spacing-md);
@@ -239,6 +221,7 @@ unset($_SESSION['update_errors']);
 </head>
 
 <body>
+<script>(function(){var t;try{t=localStorage.getItem('fillqr-theme')}catch(e){}if(t==='light')document.body.classList.add('theme-light');})()</script>
     <div class="page page--admin">
 
     <div class="header-row">
@@ -248,23 +231,21 @@ unset($_SESSION['update_errors']);
         </div>
 
         <h1>
-          Antrag #<?= (int)$app['id'] ?>
+          Mitglied #<?= (int)$app['id'] ?>
           – <?= htmlspecialchars($app['full_name'] ?? '') ?>
         </h1>
         <p class="subtitle">
           Verein: <strong><?= htmlspecialchars($tenantName) ?></strong><br>
-          Eingegangen am <?= htmlspecialchars($app['created_at'] ?? '') ?>
+          Eingegangen am <?= !empty($app['created_at']) ? date('d.m.Y H:i', strtotime($app['created_at'])) : '' ?>
           <?php if (!empty($app['updated_at'])): ?>
-            &middot; letzte &Auml;nderung <?= htmlspecialchars($app['updated_at']) ?>
+            &middot; letzte &Auml;nderung <?= date('d.m.Y H:i', strtotime($app['updated_at'])) ?>
           <?php endif; ?>
         </p>
       </div>
 
-      <div class="header-right">
+      <div class="logo-box<?= ($theme['logo_variant'] ?? '') === 'dark' ? ' logo-on-dark' : '' ?>">
         <?php if (!empty($tenantLogo)): ?>
-          <img src="<?= htmlspecialchars($tenantLogo) ?>"
-               alt="Vereinslogo"
-               style="display:block;max-width:130px;max-height:48px;border-radius:8px;">
+          <img src="<?= htmlspecialchars($tenantLogo) ?>" alt="<?= htmlspecialchars($tenantName) ?>" class="logo">
         <?php else: ?>
           <div class="logo-placeholder">
             Hier k&ouml;nnte<br>Ihr Logo<br>stehen
@@ -292,15 +273,13 @@ unset($_SESSION['update_errors']);
 
       <!-- Status-Anzeige (read-only Pill) -->
       <?php
-        $pillClass = 'status-new';
-        if (!empty($app['has_warnings'])) {
-            $pillClass = 'status-warn';
-        }
+        $appStatus = $app['status'] ?? 'new';
+        $pillClass = !empty($app['has_warnings']) ? 'status-warn' : 'status-' . $appStatus;
       ?>
       <div class="status-row">
         <p style="margin:0;">
           <span class="status-pill <?= $pillClass ?>">
-            Status: <?= htmlspecialchars($app['status'] ?? '') ?>
+            Status: <?= htmlspecialchars(app_getStatusLabel($appStatus)) ?>
             <?php if (!empty($app['has_warnings'])): ?>
               &middot; Hinweise
             <?php endif; ?>
@@ -511,10 +490,9 @@ unset($_SESSION['update_errors']);
           <dt><label for="status-select">Status</label></dt>
           <dd>
             <select id="status-select" name="status">
-              <option value="new"      <?= ($app['status'] ?? '') === 'new'      ? 'selected' : '' ?>>Neu</option>
-              <option value="reviewed" <?= ($app['status'] ?? '') === 'reviewed' ? 'selected' : '' ?>>Gepr&uuml;ft</option>
-              <option value="exported" <?= ($app['status'] ?? '') === 'exported' ? 'selected' : '' ?>>Exportiert</option>
-              <option value="archived" <?= ($app['status'] ?? '') === 'archived' ? 'selected' : '' ?>>Archiviert</option>
+              <?php foreach (app_getStatusMap() as $val => $label): ?>
+                <option value="<?= $val ?>" <?= ($app['status'] ?? '') === $val ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+              <?php endforeach; ?>
             </select>
           </dd>
         </dl>
@@ -551,5 +529,12 @@ unset($_SESSION['update_errors']);
 
     </div>
   </div>
+
+  <!-- Theme Toggle -->
+  <button type="button" id="theme-toggle" class="theme-toggle theme-toggle-fixed" title="Hell / Dunkel">
+    <span class="theme-toggle__track"><span class="theme-toggle__thumb"></span></span>
+    <span class="theme-toggle__label"></span>
+  </button>
+  <script src="/assets/js/theme.js?v=7"></script>
 </body>
 </html>
