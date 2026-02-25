@@ -6,6 +6,8 @@ session_start();
 $pdo      = db();
 $tenantId = resolveTenantIdByHost($pdo);
 
+require_once __DIR__ . '/auth.php';
+
 // Tenant inkl. Logo laden
 $stmt = $pdo->prepare('SELECT name, logo_path FROM tbl_tenant WHERE id = ?');
 $stmt->execute([$tenantId]);

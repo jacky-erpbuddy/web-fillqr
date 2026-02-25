@@ -16,8 +16,15 @@ function db(): PDO {
 /**
  * Ermittelt tenant_id anhand der aufgerufenen Hostname-Domain.
  * Nutzt deine Tabelle tbl_tenant_domain(host -> tenant_id, is_primary)
+ *
+ * @param PDO|null $pdo Optional: wenn nicht angegeben, nutzt db()
+ * @return int|null tenant_id oder null wenn nicht gefunden
  */
-function resolveTenantIdByHost(): ?int {
+function resolveTenantIdByHost(?PDO $pdo = null): ?int {
+  if ($pdo === null) {
+    $pdo = db();
+  }
+  
   $host = $_SERVER['HTTP_HOST'] ?? '';
   if ($host === '') return null;
 
@@ -25,7 +32,7 @@ function resolveTenantIdByHost(): ?int {
           FROM tbl_tenant_domain
           WHERE host = :host
           LIMIT 1";
-  $st = db()->prepare($sql);
+  $st = $pdo->prepare($sql);
   $st->execute([':host' => $host]);
   $id = $st->fetchColumn();
   return $id ? (int)$id : null;

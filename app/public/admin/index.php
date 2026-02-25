@@ -6,6 +6,8 @@ session_start();
 $pdo      = db();
 $tenantId = resolveTenantIdByHost($pdo);
 
+require_once __DIR__ . '/auth.php';
+
 // Tenant inkl. Logo laden
 $stmt = $pdo->prepare('SELECT name, logo_path FROM tbl_tenant WHERE id = ?');
 $stmt->execute([$tenantId]);
@@ -94,9 +96,10 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
   <meta charset="utf-8">
   <title>Mitgliedsanträge – <?= htmlspecialchars($tenantName) ?></title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/png" href="/favicon.png">
 
   <!-- gemeinsame Basis-Styles -->
-  <link rel="stylesheet" href="/assets/css/base.css?v=2">
+  <link rel="stylesheet" href="/assets/css/base.css?v=3">
 
   <!-- Admin-spezifische Styles – bauen auf base.css auf -->
   <style>
@@ -341,9 +344,12 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <body>
   <div class="page page--admin">
-    <nav class="admin-nav" style="display:flex;gap:16px;margin-bottom:var(--spacing-sm);font-size:0.85rem;">
+    <nav class="admin-nav" style="display:flex;gap:16px;align-items:center;margin-bottom:var(--spacing-sm);font-size:0.85rem;">
       <a href="index.php" style="color:var(--color-cyan);font-weight:600;">Anträge</a>
       <a href="import.php" style="color:var(--color-text-muted);text-decoration:none;">CSV-Import</a>
+      <span style="flex:1;"></span>
+      <span style="color:var(--color-text-muted);font-size:0.8rem;"><?= htmlspecialchars($_SESSION['admin_email'] ?? '') ?></span>
+      <a href="logout.php" style="color:var(--color-text-muted);text-decoration:none;">Abmelden</a>
     </nav>
     <div class="header-row">
       <div>

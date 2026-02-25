@@ -1,7 +1,5 @@
-AuthType Basic
-AuthName "fillqr Demo Admin"
-AuthUserFile /homepages/u77196/fillqr/.htpasswd
-Require valid-user
+# fillQR Admin — Session-based auth (login.php)
+# Basic Auth removed — replaced by PHP login system.
 
 # Keine Verzeichnisliste
 Options -Indexes

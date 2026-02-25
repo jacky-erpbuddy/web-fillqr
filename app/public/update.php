@@ -273,7 +273,8 @@ $pageTitle = 'Daten aktualisieren – ' . ($tenant['name'] ?? 'Ihr Verein');
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?= htmlspecialchars($pageTitle) ?></title>
-  <link rel="stylesheet" href="/assets/css/base.css?v=2">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/assets/css/base.css?v=3">
 <?php if ($token === '' && !$application): ?>
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <?php endif; ?>

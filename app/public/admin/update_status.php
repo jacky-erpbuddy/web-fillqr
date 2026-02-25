@@ -14,6 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $pdo      = db();
 $tenantId = resolveTenantIdByHost($pdo);
 
+require_once __DIR__ . '/auth.php';
+
 // Eingaben einsammeln
 $appId     = isset($_POST['id']) ? (int)$_POST['id'] : 0;
 $newStatus = $_POST['status']      ?? '';

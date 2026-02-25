@@ -78,8 +78,9 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?= htmlspecialchars($pageTitle) ?></title>
+  <link rel="icon" type="image/png" href="/favicon.png">
 
-  <link rel="stylesheet" href="/assets/css/base.css?v=2">
+  <link rel="stylesheet" href="/assets/css/base.css?v=3">
 
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
@@ -102,8 +103,11 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
           </div>
 
           <!-- Theme-Toggle -->
-          <button type="button" id="theme-toggle" class="theme-toggle">
-            🌙 Dunkel
+          <button type="button" id="theme-toggle" class="theme-toggle" title="Zwischen Hell und Dunkel wechseln">
+            <span class="theme-toggle__track">
+              <span class="theme-toggle__thumb"></span>
+            </span>
+            <span class="theme-toggle__label">Dunkel</span>
           </button>
         </div>
       </div>
@@ -165,7 +169,12 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
 
           <div class="field">
             <label for="photo">Foto (optional)</label>
-            <input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp">
+            <label class="file-upload-btn" for="photo">
+              <span class="file-upload-btn__icon">📷</span>
+              <span class="file-upload-btn__text">Foto aufnehmen oder hochladen</span>
+            </label>
+            <input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" class="file-upload-input">
+            <div class="file-upload-name" id="photo-filename"></div>
             <div class="help-text">
               Optionales Foto (JPG, PNG oder WEBP, max. 5&nbsp;MB).
             </div>
@@ -177,40 +186,42 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
         ========================================== -->
         <div class="form-section">
           <div class="field">
-            <span class="section-label">Gesetzlicher Vertreter (nur bei Minderjährigen)</span>
-          </div>
-
-          <div class="field">
             <label class="checkbox-row">
-              <input type="checkbox" name="is_minor" value="1"
+              <input type="checkbox" name="is_minor" id="is_minor_cb" value="1"
                      <?= !empty($formData['is_minor']) ? 'checked' : '' ?>>
-              <span>Ich bin minderjährig. Die folgenden Felder werden von meinem gesetzlichen Vertreter ausgefüllt.</span>
+              <span>Ich bin minderjährig</span>
             </label>
           </div>
 
-          <div class="field field--inline">
-            <div class="field__control">
-              <label for="guardian_name">Name des gesetzlichen Vertreters</label>
-              <input type="text" id="guardian_name" name="guardian_name"
-                     value="<?= htmlspecialchars($formData['guardian_name'] ?? '') ?>">
+          <div id="guardian-fields" class="collapsible-section" <?= empty($formData['is_minor']) ? 'style="display:none"' : '' ?>>
+            <div class="field">
+              <span class="section-label">Gesetzlicher Vertreter</span>
             </div>
-            <div class="field__control">
-              <label for="guardian_relation">Beziehung (z.&nbsp;B. Mutter, Vater)</label>
-              <input type="text" id="guardian_relation" name="guardian_relation"
-                     value="<?= htmlspecialchars($formData['guardian_relation'] ?? '') ?>">
-            </div>
-          </div>
 
-          <div class="field field--inline">
-            <div class="field__control">
-              <label for="guardian_email">E-Mail des Vertreters</label>
-              <input type="email" id="guardian_email" name="guardian_email"
-                     value="<?= htmlspecialchars($formData['guardian_email'] ?? '') ?>">
+            <div class="field field--inline">
+              <div class="field__control">
+                <label for="guardian_name">Name des Vertreters</label>
+                <input type="text" id="guardian_name" name="guardian_name"
+                       value="<?= htmlspecialchars($formData['guardian_name'] ?? '') ?>">
+              </div>
+              <div class="field__control">
+                <label for="guardian_relation">Beziehung (z.&nbsp;B. Mutter, Vater)</label>
+                <input type="text" id="guardian_relation" name="guardian_relation"
+                       value="<?= htmlspecialchars($formData['guardian_relation'] ?? '') ?>">
+              </div>
             </div>
-            <div class="field__control">
-              <label for="guardian_phone">Telefon des Vertreters</label>
-              <input type="text" id="guardian_phone" name="guardian_phone"
-                     value="<?= htmlspecialchars($formData['guardian_phone'] ?? '') ?>">
+
+            <div class="field field--inline">
+              <div class="field__control">
+                <label for="guardian_email">E-Mail des Vertreters</label>
+                <input type="email" id="guardian_email" name="guardian_email"
+                       value="<?= htmlspecialchars($formData['guardian_email'] ?? '') ?>">
+              </div>
+              <div class="field__control">
+                <label for="guardian_phone">Telefon des Vertreters</label>
+                <input type="text" id="guardian_phone" name="guardian_phone"
+                       value="<?= htmlspecialchars($formData['guardian_phone'] ?? '') ?>">
+              </div>
             </div>
           </div>
         </div>
@@ -278,34 +289,44 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
         ========================================== -->
         <div class="form-section">
           <div class="field">
-            <span class="section-label">SEPA-Lastschriftmandat</span>
-          </div>
-
-          <div class="field">
-            <label for="sepa_account_holder">Kontoinhaber</label>
-            <input type="text" id="sepa_account_holder" name="sepa_account_holder"
-                   value="<?= htmlspecialchars($formData['sepa_account_holder'] ?? '') ?>">
-          </div>
-
-          <div class="field field--inline">
-            <div class="field__control">
-              <label for="sepa_iban">IBAN</label>
-              <input type="text" id="sepa_iban" name="sepa_iban"
-                     value="<?= htmlspecialchars($formData['sepa_iban'] ?? '') ?>">
-            </div>
-            <div class="field__control" style="max-width: 200px;">
-              <label for="sepa_bic">BIC</label>
-              <input type="text" id="sepa_bic" name="sepa_bic"
-                     value="<?= htmlspecialchars($formData['sepa_bic'] ?? '') ?>">
-            </div>
-          </div>
-
-          <div class="field">
             <label class="checkbox-row">
-              <input type="checkbox" name="sepa_ok" value="1"
-                     <?= !empty($formData['sepa_ok']) ? 'checked' : '' ?>>
-              <span>Ich erteile dem Verein das SEPA-Lastschriftmandat für die fälligen Beiträge.</span>
+              <input type="checkbox" name="sepa_wanted" id="sepa_wanted_cb" value="1"
+                     <?= (!empty($formData['sepa_ok']) || !empty($formData['sepa_iban'])) ? 'checked' : '' ?>>
+              <span>Ich möchte ein SEPA-Lastschriftmandat erteilen</span>
             </label>
+          </div>
+
+          <div id="sepa-fields" class="collapsible-section" <?= (empty($formData['sepa_ok']) && empty($formData['sepa_iban'])) ? 'style="display:none"' : '' ?>>
+            <div class="field">
+              <span class="section-label">SEPA-Lastschriftmandat</span>
+            </div>
+
+            <div class="field">
+              <label for="sepa_account_holder">Kontoinhaber</label>
+              <input type="text" id="sepa_account_holder" name="sepa_account_holder"
+                     value="<?= htmlspecialchars($formData['sepa_account_holder'] ?? '') ?>">
+            </div>
+
+            <div class="field field--inline">
+              <div class="field__control">
+                <label for="sepa_iban">IBAN</label>
+                <input type="text" id="sepa_iban" name="sepa_iban"
+                       value="<?= htmlspecialchars($formData['sepa_iban'] ?? '') ?>">
+              </div>
+              <div class="field__control" style="max-width: 200px;">
+                <label for="sepa_bic">BIC</label>
+                <input type="text" id="sepa_bic" name="sepa_bic"
+                       value="<?= htmlspecialchars($formData['sepa_bic'] ?? '') ?>">
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="checkbox-row">
+                <input type="checkbox" name="sepa_ok" value="1"
+                       <?= !empty($formData['sepa_ok']) ? 'checked' : '' ?>>
+                <span>Ich erteile dem Verein das SEPA-Lastschriftmandat für die fälligen Beiträge.</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -388,44 +409,77 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
       // --------------------------
       var body = document.body;
       var toggle = document.getElementById('theme-toggle');
+      var toggleLabel = toggle ? toggle.querySelector('.theme-toggle__label') : null;
       var storageKey = 'fillqr-theme';
 
       function applyTheme(theme) {
         if (theme === 'light') {
           body.classList.add('theme-light');
-          if (toggle) toggle.textContent = '🌙 Dunkel';
+          if (toggle) toggle.classList.add('theme-toggle--light');
+          if (toggleLabel) toggleLabel.textContent = 'Hell';
         } else {
           body.classList.remove('theme-light');
-          if (toggle) toggle.textContent = '☀ Hell';
+          if (toggle) toggle.classList.remove('theme-toggle--light');
+          if (toggleLabel) toggleLabel.textContent = 'Dunkel';
         }
       }
 
-      // 1) Aus localStorage lesen (falls vorhanden)
       var stored = null;
-      try {
-        stored = window.localStorage.getItem(storageKey);
-      } catch (e) {}
+      try { stored = window.localStorage.getItem(storageKey); } catch (e) {}
+      applyTheme((stored === 'dark' || stored === 'light') ? stored : 'dark');
 
-      if (stored === 'dark' || stored === 'light') {
-        applyTheme(stored);
-      } else {
-        // Default ist Dark (passend zur Landingpage)
-        applyTheme('dark');
-      }
-
-      // 2) Klick-Handler
       if (toggle) {
         toggle.addEventListener('click', function () {
-          var isLight = body.classList.contains('theme-light');
-          var next = isLight ? 'dark' : 'light';
+          var next = body.classList.contains('theme-light') ? 'dark' : 'light';
           applyTheme(next);
-          try {
-            window.localStorage.setItem(storageKey, next);
-          } catch (e) {}
+          try { window.localStorage.setItem(storageKey, next); } catch (e) {}
         });
       }
-      
-      
+
+      // --------------------------
+      // Birthdate: Default to ~1990
+      // --------------------------
+      var bdField = document.getElementById('birthdate');
+      if (bdField && !bdField.value) {
+        bdField.addEventListener('focus', function onBdFocus() {
+          if (!bdField.value) bdField.value = '1990-01-01';
+          bdField.removeEventListener('focus', onBdFocus);
+        });
+      }
+
+      // --------------------------
+      // Dynamic: Guardian fields
+      // --------------------------
+      var minorCb = document.getElementById('is_minor_cb');
+      var guardianFields = document.getElementById('guardian-fields');
+      if (minorCb && guardianFields) {
+        minorCb.addEventListener('change', function () {
+          guardianFields.style.display = minorCb.checked ? '' : 'none';
+        });
+      }
+
+      // --------------------------
+      // Dynamic: SEPA fields
+      // --------------------------
+      var sepaCb = document.getElementById('sepa_wanted_cb');
+      var sepaFields = document.getElementById('sepa-fields');
+      if (sepaCb && sepaFields) {
+        sepaCb.addEventListener('change', function () {
+          sepaFields.style.display = sepaCb.checked ? '' : 'none';
+        });
+      }
+
+      // --------------------------
+      // Photo: Show filename
+      // --------------------------
+      var photoInput = document.getElementById('photo');
+      var photoName = document.getElementById('photo-filename');
+      if (photoInput && photoName) {
+        photoInput.addEventListener('change', function () {
+          photoName.textContent = photoInput.files.length ? photoInput.files[0].name : '';
+        });
+      }
+
       var form = document.querySelector('form');
       var errorBox = document.getElementById('form-errors');
       if (!form || !errorBox) return;
