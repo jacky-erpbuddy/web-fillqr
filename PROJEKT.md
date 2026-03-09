@@ -8,7 +8,7 @@
 
 | Aspekt | Wert |
 |--------|------|
-| **Status** | ✅ Aktiv (Landingpage) / 🔨 Dev (App) |
+| **Status** | Produktiv (Landingpage) / Development (App) |
 | **Version** | v2.0.0 (Landingpage) / v0.1.2 (App) |
 | **Stack** | PHP, MySQL, HTML/CSS/JS |
 | **Server** | Variomedia (Shared Hosting) |
@@ -202,4 +202,4 @@ NEW → REVIEWED → EXPORTED → ARCHIVED
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-02-10 – Domain-Mapping korrigiert, Repo-Struktur dokumentiert*
+*Zuletzt aktualisiert: 2026-03-09*
