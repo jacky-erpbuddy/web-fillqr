@@ -1,6 +1,4 @@
 # fillQR App - Public
-# Basic Auth wurde entfernt — Formular ist oeffentlich zugaenglich.
-# Admin-Bereich hat eigene .htaccess mit Basic Auth.
 
 # --- Security Headers ---
 <IfModule mod_headers.c>
