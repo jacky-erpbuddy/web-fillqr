@@ -22,3 +22,8 @@ Thumbs.db
 # Temp
 *.tmp
 *.bak
+
+# Node / Next.js
+node_modules/
+.next/
+.env.local
