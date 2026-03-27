@@ -7,5 +7,172 @@ datasource db {
   provider = "postgresql"
 }
 
-// Kein fachliches Modell in AP-06.
-// Schema-Definition folgt in AP-07.
+// ============================================================
+// Enums
+// ============================================================
+
+enum TenantStatus {
+  DRAFT
+  TRIAL
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum AppUserRole {
+  OWNER
+  ADMIN
+  EDITOR
+}
+
+enum FormType {
+  VEREIN
+  FEEDBACK
+  LEAD
+}
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FormFieldType {
+  TEXT
+  TEXTAREA
+  EMAIL
+  PHONE
+  SELECT
+  CHECKBOX
+  DATE
+}
+
+enum SubmissionStatus {
+  NEW
+  IN_REVIEW
+  DONE
+  ARCHIVED
+}
+
+enum AuditEntityType {
+  TENANT
+  APP_USER
+  FORM
+  FORM_FIELD
+  SUBMISSION
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+}
+
+// ============================================================
+// Models
+// ============================================================
+
+model Tenant {
+  id        String       @id @default(cuid())
+  slug      String       @unique
+  name      String
+  status    TenantStatus @default(DRAFT)
+  settings  Json?
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt      @map("updated_at")
+
+  users       AppUser[]
+  forms       Form[]
+  submissions Submission[]
+  auditLogs   AuditLog[]
+
+  @@map("tenants")
+}
+
+model AppUser {
+  id           String      @id @default(cuid())
+  tenantId     String      @map("tenant_id")
+  email        String
+  passwordHash String      @map("password_hash")
+  role         AppUserRole @default(ADMIN)
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt      @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@map("app_users")
+}
+
+model Form {
+  id        String     @id @default(cuid())
+  tenantId  String     @map("tenant_id")
+  title     String
+  slug      String
+  type      FormType   @default(VEREIN)
+  status    FormStatus @default(DRAFT)
+  settings  Json?
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt      @map("updated_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fields      FormField[]
+  submissions Submission[]
+
+  @@unique([tenantId, slug])
+  @@map("forms")
+}
+
+model FormField {
+  id        String        @id @default(cuid())
+  formId    String        @map("form_id")
+  key       String
+  label     String
+  type      FormFieldType
+  required  Boolean       @default(false)
+  config    Json?
+  sortOrder Int           @default(0) @map("sort_order")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt      @map("updated_at")
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, key])
+  @@map("form_fields")
+}
+
+model Submission {
+  id        String           @id @default(cuid())
+  formId    String           @map("form_id")
+  tenantId  String           @map("tenant_id")
+  status    SubmissionStatus @default(NEW)
+  payload   Json
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt      @map("updated_at")
+
+  form   Form   @relation(fields: [formId], references: [id], onDelete: Restrict)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@map("submissions")
+}
+
+/// Immutable audit entries. actorId is intentionally not a FK —
+/// user deletion must not block or cascade audit history.
+model AuditLog {
+  id         String          @id @default(cuid())
+  tenantId   String          @map("tenant_id")
+  entityType AuditEntityType @map("entity_type")
+  entityId   String          @map("entity_id")
+  action     AuditAction
+  meta       Json?
+  actorId    String?         @map("actor_id")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, entityType, entityId])
+  @@map("audit_logs")
+}
