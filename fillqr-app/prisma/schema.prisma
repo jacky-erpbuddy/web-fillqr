@@ -93,7 +93,7 @@ model Tenant {
 model AppUser {
   id           String      @id @default(cuid())
   tenantId     String      @map("tenant_id")
-  email        String
+  email        String      @unique
   passwordHash String      @map("password_hash")
   role         AppUserRole @default(ADMIN)
   createdAt    DateTime    @default(now()) @map("created_at")
@@ -101,7 +101,6 @@ model AppUser {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, email])
   @@map("app_users")
 }
 
