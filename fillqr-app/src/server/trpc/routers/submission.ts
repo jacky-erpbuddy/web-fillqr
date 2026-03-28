@@ -1,7 +1,16 @@
 import { z } from "zod";
 import { router, TRPCError } from "../init";
-import { publicProcedure } from "../procedures";
+import { publicProcedure, protectedProcedure } from "../procedures";
 import type { FormFieldType } from "@/generated/prisma/enums";
+import type { SubmissionStatus } from "@/generated/prisma/enums";
+
+/** Erlaubte Statusuebergaenge (AP-14) */
+const ALLOWED_TRANSITIONS: Record<SubmissionStatus, SubmissionStatus[]> = {
+  NEW: ["IN_REVIEW", "ARCHIVED"],
+  IN_REVIEW: ["NEW", "DONE"],
+  DONE: ["ARCHIVED"],
+  ARCHIVED: [],
+};
 
 type Field = {
   key: string;
@@ -181,5 +190,49 @@ export const submissionRouter = router({
           message: "Fehler beim Speichern",
         });
       }
+    }),
+
+  updateStatus: protectedProcedure
+    .input(
+      z.object({
+        submissionId: z.string().min(1),
+        status: z.enum(["NEW", "IN_REVIEW", "DONE", "ARCHIVED"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // 1. Submission laden (minimal)
+      const submission = await ctx.prisma.submission.findUnique({
+        where: { id: input.submissionId },
+        select: { id: true, tenantId: true, status: true },
+      });
+
+      // 2. Nicht gefunden oder falscher Tenant → NOT_FOUND (kein Info-Leak)
+      if (!submission || submission.tenantId !== ctx.user.tenantId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Einsendung nicht gefunden",
+        });
+      }
+
+      // 3. No-Op und ungueltige Uebergaenge pruefen
+      const currentStatus = submission.status as SubmissionStatus;
+      const newStatus = input.status as SubmissionStatus;
+      const allowed = ALLOWED_TRANSITIONS[currentStatus];
+
+      if (currentStatus === newStatus || !allowed.includes(newStatus)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Statuswechsel von ${currentStatus} nach ${newStatus} nicht erlaubt`,
+        });
+      }
+
+      // 4. Status aktualisieren
+      const updated = await ctx.prisma.submission.update({
+        where: { id: submission.id },
+        data: { status: newStatus },
+        select: { id: true, status: true },
+      });
+
+      return { id: updated.id, status: updated.status };
     }),
 });
