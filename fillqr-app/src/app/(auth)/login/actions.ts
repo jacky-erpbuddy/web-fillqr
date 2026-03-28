@@ -27,6 +27,16 @@ export async function login(formData: FormData) {
     redirect("/login?error=E-Mail+oder+Passwort+falsch");
   }
 
+  // Tenant-Status pruefen (Komfort: fruehes Abfangen bei Login)
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: user.tenantId },
+    select: { status: true },
+  });
+
+  if (!tenant || (tenant.status !== "ACTIVE" && tenant.status !== "TRIAL")) {
+    redirect("/login?error=Konto+deaktiviert");
+  }
+
   const session = await getSession();
   session.userId = user.id;
   session.tenantId = user.tenantId;

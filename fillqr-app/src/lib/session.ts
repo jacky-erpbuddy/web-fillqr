@@ -1,6 +1,8 @@
 import { getIronSession, IronSession } from "iron-session";
 import { cookies } from "next/headers";
 
+export const SESSION_COOKIE_NAME = "fillqr_session";
+
 export interface SessionData {
   userId: string;
   tenantId: string;
@@ -10,7 +12,7 @@ export interface SessionData {
 
 const sessionOptions = {
   password: process.env.SESSION_SECRET!,
-  cookieName: "fillqr_session",
+  cookieName: SESSION_COOKIE_NAME,
   cookieOptions: {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
