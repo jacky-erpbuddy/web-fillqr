@@ -235,4 +235,87 @@ export const submissionRouter = router({
 
       return { id: updated.id, status: updated.status };
     }),
+
+  list: protectedProcedure
+    .input(
+      z.object({
+        status: z.enum(["NEW", "IN_REVIEW", "DONE", "ARCHIVED"]).optional(),
+        formId: z.string().min(1).optional(),
+        cursor: z.string().min(1).optional(),
+        limit: z.number().int().min(1).max(100).default(20),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const items = await ctx.prisma.submission.findMany({
+        where: {
+          tenantId: ctx.user.tenantId,
+          ...(input.status && { status: input.status }),
+          ...(input.formId && { formId: input.formId }),
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: input.limit + 1,
+        ...(input.cursor && {
+          cursor: { id: input.cursor },
+          skip: 1,
+        }),
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          form: {
+            select: { title: true, slug: true },
+          },
+        },
+      });
+
+      let nextCursor: string | null = null;
+      if (items.length > input.limit) {
+        const last = items.pop()!;
+        nextCursor = last.id;
+      }
+
+      return { items, nextCursor };
+    }),
+
+  getById: protectedProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const submission = await ctx.prisma.submission.findUnique({
+        where: { id: input.id, tenantId: ctx.user.tenantId },
+        select: {
+          id: true,
+          status: true,
+          payload: true,
+          createdAt: true,
+          updatedAt: true,
+          form: {
+            select: {
+              title: true,
+              slug: true,
+              type: true,
+              fields: {
+                select: {
+                  key: true,
+                  label: true,
+                  type: true,
+                  required: true,
+                  config: true,
+                  sortOrder: true,
+                },
+                orderBy: { sortOrder: "asc" },
+              },
+            },
+          },
+        },
+      });
+
+      if (!submission) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Einsendung nicht gefunden",
+        });
+      }
+
+      return submission;
+    }),
 });
