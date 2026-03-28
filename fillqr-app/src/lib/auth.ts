@@ -61,7 +61,7 @@ export async function requireRole(minRole: AppUserRole): Promise<AuthUser> {
   const user = await requireAuth();
 
   if (ROLE_LEVEL[user.role] < ROLE_LEVEL[minRole]) {
-    redirect("/dashboard?error=Keine+Berechtigung");
+    redirect("/admin/dashboard?error=Keine+Berechtigung");
   }
 
   return user;
@@ -76,7 +76,7 @@ export async function assertTenantAccess(tenantId: string): Promise<AuthUser> {
   const user = await requireAuth();
 
   if (user.tenantId !== tenantId) {
-    redirect("/dashboard?error=Kein+Zugriff");
+    redirect("/admin/dashboard?error=Kein+Zugriff");
   }
 
   return user;

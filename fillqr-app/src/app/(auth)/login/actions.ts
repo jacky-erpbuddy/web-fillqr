@@ -44,5 +44,5 @@ export async function login(formData: FormData) {
   session.role = user.role;
   await session.save();
 
-  redirect("/dashboard");
+  redirect("/admin/dashboard");
 }
