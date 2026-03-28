@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TRPCError } from "@trpc/server";
+import QRCode from "qrcode";
 import { createCaller } from "@/server/trpc/caller";
 import { FORM_STATUS_TRANSITIONS } from "@/server/trpc/routers/form";
 import { updateFormStatus } from "./actions";
+
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   DRAFT: { label: "Entwurf", color: "bg-gray-100 text-gray-600" },
@@ -30,6 +34,12 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   DATE: "Datum",
 };
 
+async function generateQrCode(url: string) {
+  const png = await QRCode.toDataURL(url, { width: 512, margin: 2 });
+  const svg = await QRCode.toString(url, { type: "svg", width: 512, margin: 2 });
+  return { png, svg };
+}
+
 type Props = {
   params: Promise<{ id: string }>;
 };
@@ -51,6 +61,21 @@ export default async function FormDetailPage({ params }: Props) {
   const currentStatus = form.status as keyof typeof FORM_STATUS_TRANSITIONS;
   const allowedNext = FORM_STATUS_TRANSITIONS[currentStatus] ?? [];
   const st = STATUS_LABELS[form.status] ?? STATUS_LABELS.DRAFT;
+
+  // QR-Code generieren (nur bei PUBLISHED)
+  let qr: { png: string; svg: string } | null = null;
+  let qrError = false;
+  const publicUrl = `${APP_URL}/f/${form.tenant.slug}/${form.slug}`;
+
+  if (form.status === "PUBLISHED") {
+    try {
+      qr = await generateQrCode(publicUrl);
+    } catch {
+      qrError = true;
+    }
+  }
+
+  const downloadBase = `fillqr-${form.tenant.slug}-${form.slug}`;
 
   return (
     <div>
@@ -103,15 +128,59 @@ export default async function FormDetailPage({ params }: Props) {
         })}
       </div>
 
-      {/* Public URL (nur wenn PUBLISHED) */}
-      {form.status === "PUBLISHED" && (
-        <div className="mt-4 rounded-md bg-blue-50 border border-blue-200 px-4 py-3 text-sm">
-          <span className="text-blue-700">
-            Öffentlicher Link:{" "}
-            <code className="font-mono">
-              /f/[tenant-slug]/{form.slug}
-            </code>
-          </span>
+      {/* QR-Code Sektion */}
+      {form.status === "PUBLISHED" ? (
+        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="text-lg font-medium text-gray-900">QR-Code</h2>
+
+          {qrError ? (
+            <p className="mt-2 text-sm text-amber-600">
+              QR-Code konnte nicht erzeugt werden.
+            </p>
+          ) : qr ? (
+            <div className="mt-4 flex flex-col sm:flex-row gap-6">
+              {/* QR Bild */}
+              <div className="shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qr.png}
+                  alt={`QR-Code für ${form.title}`}
+                  width={200}
+                  height={200}
+                  className="rounded border border-gray-100"
+                />
+              </div>
+
+              {/* URL + Downloads */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-500">Öffentlicher Link:</p>
+                <code className="mt-1 block text-sm font-mono text-gray-900 break-all">
+                  {publicUrl}
+                </code>
+
+                <div className="mt-4 flex gap-3">
+                  <a
+                    href={qr.png}
+                    download={`${downloadBase}.png`}
+                    className="px-3 py-1.5 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    PNG herunterladen
+                  </a>
+                  <a
+                    href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr.svg)}`}
+                    download={`${downloadBase}.svg`}
+                    className="px-3 py-1.5 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    SVG herunterladen
+                  </a>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-6 rounded-md bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-500">
+          Formular veröffentlichen, um einen QR-Code zu erhalten.
         </div>
       )}
 

@@ -158,6 +158,7 @@ export const formRouter = router({
           settings: true,
           createdAt: true,
           updatedAt: true,
+          tenant: { select: { slug: true } },
           _count: { select: { submissions: true } },
           fields: {
             orderBy: { sortOrder: "asc" },
