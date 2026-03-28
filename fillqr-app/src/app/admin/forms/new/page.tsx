@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { FORM_TEMPLATES } from "@/lib/form-templates";
+import type { FormTemplate } from "@/lib/form-templates";
 
 type FieldInput = {
   key: string;
@@ -61,6 +63,32 @@ export default function NewFormPage() {
   const [fields, setFields] = useState<FieldInput[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** Template anwenden: Titel, Typ, Slug und Felder vollstaendig ersetzen */
+  function applyTemplate(templateId: string) {
+    if (templateId === "") {
+      // "Leer" — nur Felder zuruecksetzen, Titel/Slug/Typ bleiben
+      setFields([]);
+      return;
+    }
+    const tpl = FORM_TEMPLATES.find((t) => t.id === templateId);
+    if (!tpl) return;
+
+    setTitle(tpl.title);
+    setSlug(generateSlug(tpl.title));
+    setSlugManual(false);
+    setFormType(tpl.type);
+    setFields(
+      tpl.fields.map((f) => ({
+        key: f.key,
+        label: f.label,
+        type: f.type,
+        required: f.required,
+        sortOrder: f.sortOrder,
+        options: f.config?.options?.join(", ") ?? "",
+      }))
+    );
+  }
 
   function handleTitleChange(val: string) {
     setTitle(val);
@@ -171,6 +199,27 @@ export default function NewFormPage() {
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+        {/* Template-Auswahl */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Vorlage wählen
+          </label>
+          <select
+            onChange={(e) => applyTemplate(e.target.value)}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Leer — ohne Vorlage</option>
+            {FORM_TEMPLATES.map((tpl) => (
+              <option key={tpl.id} value={tpl.id}>
+                {tpl.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-400">
+            Vorlage füllt Titel, Typ und Felder vor. Du kannst alles anpassen.
+          </p>
+        </div>
+
         {/* Titel */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
