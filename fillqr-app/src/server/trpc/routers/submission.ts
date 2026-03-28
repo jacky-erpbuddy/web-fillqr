@@ -4,8 +4,8 @@ import { publicProcedure, protectedProcedure } from "../procedures";
 import type { FormFieldType } from "@/generated/prisma/enums";
 import type { SubmissionStatus } from "@/generated/prisma/enums";
 
-/** Erlaubte Statusuebergaenge (AP-14) */
-const ALLOWED_TRANSITIONS: Record<SubmissionStatus, SubmissionStatus[]> = {
+/** Erlaubte Statusuebergaenge (AP-14). Exportiert fuer UI (AP-19). */
+export const ALLOWED_TRANSITIONS: Record<SubmissionStatus, SubmissionStatus[]> = {
   NEW: ["IN_REVIEW", "ARCHIVED"],
   IN_REVIEW: ["NEW", "DONE"],
   DONE: ["ARCHIVED"],
