@@ -5,8 +5,8 @@ import { SESSION_COOKIE_NAME } from "@/lib/session";
 /** Exakte Pfade die ohne Login erreichbar sein muessen */
 const PUBLIC_PATHS = new Set(["/login", "/logout", "/api/health", "/"]);
 
-/** Pfad-Prefixe die oeffentlich bleiben (z.B. Public-Formulare via Subdomain) */
-const PUBLIC_PREFIXES = ["/f/"];
+/** Pfad-Prefixe die oeffentlich bleiben */
+const PUBLIC_PREFIXES = ["/f/", "/api/"];
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
