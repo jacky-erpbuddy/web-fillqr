@@ -37,12 +37,14 @@ export default async function AdminLayout({
           <div className="px-6 py-4 border-t border-gray-200">
             <p className="text-sm text-gray-600 truncate">{user.email}</p>
             <p className="text-xs text-gray-400">{user.role}</p>
-            <Link
-              href="/logout"
-              className="mt-2 inline-block text-sm text-gray-500 hover:text-gray-700"
-            >
-              Abmelden
-            </Link>
+            <form action="/logout" method="POST" style={{ marginTop: 8 }}>
+              <button
+                type="submit"
+                className="text-sm text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer p-0"
+              >
+                Abmelden
+              </button>
+            </form>
           </div>
         </div>
       </aside>
