@@ -12,7 +12,11 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const email = (formData.get("email") as string | null)?.trim().toLowerCase();
   const password = formData.get("password") as string | null;
-  const baseUrl = request.nextUrl.origin;
+
+  // Origin aus X-Forwarded-Headers (Caddy) oder Fallback
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "app.fillqr.de";
+  const baseUrl = `${proto}://${host}`;
 
   if (!email || !password) {
     return NextResponse.redirect(
