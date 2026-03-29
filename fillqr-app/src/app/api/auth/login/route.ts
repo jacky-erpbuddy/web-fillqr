@@ -1,34 +1,32 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
-export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-  const email = (body?.email as string | undefined)?.trim().toLowerCase();
-  const password = body?.password as string | undefined;
+/**
+ * Login via klassischem Form-POST.
+ * Setzt Cookie + Redirect in einer atomaren Response —
+ * zuverlaessiger als fetch() + window.location.href.
+ */
+export async function POST(request: NextRequest) {
+  const formData = await request.formData();
+  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
+  const password = formData.get("password") as string | null;
+  const baseUrl = request.nextUrl.origin;
 
   if (!email || !password) {
-    return NextResponse.json(
-      { error: "E-Mail und Passwort eingeben" },
-      { status: 400 }
+    return NextResponse.redirect(
+      `${baseUrl}/login?error=${encodeURIComponent("E-Mail und Passwort eingeben")}`,
+      303
     );
   }
 
   const user = await prisma.appUser.findUnique({ where: { email } });
 
-  if (!user) {
-    return NextResponse.json(
-      { error: "E-Mail oder Passwort falsch" },
-      { status: 401 }
-    );
-  }
-
-  const passwordMatch = await bcrypt.compare(password, user.passwordHash);
-  if (!passwordMatch) {
-    return NextResponse.json(
-      { error: "E-Mail oder Passwort falsch" },
-      { status: 401 }
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    return NextResponse.redirect(
+      `${baseUrl}/login?error=${encodeURIComponent("E-Mail oder Passwort falsch")}`,
+      303
     );
   }
 
@@ -38,9 +36,9 @@ export async function POST(request: Request) {
   });
 
   if (!tenant || (tenant.status !== "ACTIVE" && tenant.status !== "TRIAL")) {
-    return NextResponse.json(
-      { error: "Konto deaktiviert" },
-      { status: 403 }
+    return NextResponse.redirect(
+      `${baseUrl}/login?error=${encodeURIComponent("Konto deaktiviert")}`,
+      303
     );
   }
 
@@ -51,5 +49,5 @@ export async function POST(request: Request) {
   session.role = user.role;
   await session.save();
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.redirect(`${baseUrl}/admin/dashboard`, 303);
 }

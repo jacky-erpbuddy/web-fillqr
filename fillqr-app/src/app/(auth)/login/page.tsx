@@ -1,49 +1,17 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+type Props = {
+  searchParams: Promise<{ error?: string }>;
+};
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? "Anmeldung fehlgeschlagen");
-        return;
-      }
-
-      // Hard navigation — stellt sicher dass der Browser das Cookie
-      // aus der fetch-Response verarbeitet hat bevor der naechste
-      // Server-Request kommt (router.push waere client-seitig)
-      window.location.href = "/admin/dashboard";
-    } catch {
-      setError("Netzwerkfehler — bitte erneut versuchen");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+export default async function LoginPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const error = params.error;
 
   return (
     <div style={{ maxWidth: 400, margin: "80px auto", padding: "0 20px" }}>
       <h1 style={{ marginBottom: 24 }}>fillQR Admin</h1>
-      <form onSubmit={handleSubmit}>
+      <form action="/api/auth/login" method="POST">
         {error && (
           <p style={{ color: "#dc2626", marginBottom: 16 }}>{error}</p>
         )}
@@ -56,9 +24,8 @@ export default function LoginPage() {
           </label>
           <input
             id="email"
+            name="email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
             style={{
@@ -79,9 +46,8 @@ export default function LoginPage() {
           </label>
           <input
             id="password"
+            name="password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
             style={{
@@ -95,19 +61,18 @@ export default function LoginPage() {
         </div>
         <button
           type="submit"
-          disabled={submitting}
           style={{
             width: "100%",
             padding: "10px 16px",
-            backgroundColor: submitting ? "#93c5fd" : "#2563eb",
+            backgroundColor: "#2563eb",
             color: "white",
             border: "none",
             borderRadius: 6,
             fontSize: 16,
-            cursor: submitting ? "default" : "pointer",
+            cursor: "pointer",
           }}
         >
-          {submitting ? "Wird angemeldet..." : "Anmelden"}
+          Anmelden
         </button>
       </form>
     </div>
