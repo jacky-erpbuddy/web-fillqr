@@ -24,12 +24,19 @@ export async function requireAuth(): Promise<AuthUser> {
   let session;
   try {
     session = await getSession();
-  } catch {
+  } catch (err) {
     // Cookie kaputt oder SESSION_SECRET geaendert
+    console.error("[AUTH] getSession failed:", err);
     redirect("/login");
   }
 
   if (!session.userId || !session.tenantId || !session.email || !session.role) {
+    console.error("[AUTH] session fields missing:", {
+      hasUserId: !!session.userId,
+      hasTenantId: !!session.tenantId,
+      hasEmail: !!session.email,
+      hasRole: !!session.role,
+    });
     redirect("/login");
   }
 

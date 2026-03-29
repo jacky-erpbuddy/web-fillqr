@@ -37,6 +37,7 @@ export function middleware(request: NextRequest) {
   // --- Auth-Guard: Cookie-Existenz pruefen (kein Decrypt) ---
   if (!isPublicPath(pathname)) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
+    console.log(`[MW] ${pathname} — cookie: ${sessionCookie ? "present" : "MISSING"}`);
     if (!sessionCookie) {
       const loginUrl = new URL("/login", request.url);
       return NextResponse.redirect(loginUrl);
