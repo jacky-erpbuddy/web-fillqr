@@ -29,8 +29,10 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/admin/dashboard");
-      router.refresh();
+      // Hard navigation — stellt sicher dass der Browser das Cookie
+      // aus der fetch-Response verarbeitet hat bevor der naechste
+      // Server-Request kommt (router.push waere client-seitig)
+      window.location.href = "/admin/dashboard";
     } catch {
       setError("Netzwerkfehler — bitte erneut versuchen");
     } finally {
