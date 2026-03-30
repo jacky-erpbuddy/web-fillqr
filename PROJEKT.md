@@ -87,6 +87,7 @@ ssh -t -i ~/.ssh/fillqr/id_ed25519_jacky_fillqr -p 2222 jacky@91.99.113.226 "sud
 | www.fillqr.de | Caddy → /srv/landing | Redirect/Mirror |
 | app.fillqr.de | Caddy → Next.js App:3000 | Kunden-Adminbereich |
 | demo.fillqr.de | Caddy → Next.js App:3000 | Demo / Demo-Tenant |
+| admin.fillqr.de | Caddy → Next.js App:3000 | Betreiber-Panel (IP-Whitelist + Basic Auth) |
 | xpgad.fillqr.de | Caddy → pgadmin:80 | pgAdmin (IP-Whitelist: nur Jacky) |
 | *.fillqr.de | Caddy → Next.js App:3000 | Oeffentliche Formulare je Tenant |
 
@@ -397,4 +398,4 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-30 (S0-AP03+AP04: Subdomain-Routing + appKey in Session + produktspezifische Nav)*
+*Zuletzt aktualisiert: 2026-03-30 (S0-AP05: Betreiber-Panel admin.fillqr.de — Auth, tRPC Router, Tenant-CRUD, Caddy)*
