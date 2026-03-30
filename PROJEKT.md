@@ -8,7 +8,7 @@
 
 | Aspekt | Wert |
 |--------|------|
-| **Status** | Relaunch (Sprint 0 Infrastruktur fertig) |
+| **Status** | Relaunch (Sprint 0: AP-01 bis AP-04 fertig) |
 | **Stack** | Next.js (App Router) + TypeScript + tRPC + Prisma + PostgreSQL + Docker + Caddy |
 | **Server** | Hetzner CCX13 (Dedicated, Falkenstein) |
 | **Server-IP** | 91.99.113.226 |
@@ -41,8 +41,10 @@ PHP + MySQL auf Variomedia Shared Hosting. Wird vollstaendig durch neuen Stack e
 - Keine JWT-first-Architektur
 
 ### Auth V1:
-- Eigene App-Auth (E-Mail + Passwort, session-/cookie-basiert)
-- Rollen: owner, admin, editor
+- Eigene App-Auth (E-Mail + Passwort, session-/cookie-basiert via iron-session)
+- Session speichert: userId, tenantId, email, appKey
+- appKey bestimmt Produkt (vereinsbuddy/trainerfeedback/messebuddy)
+- Rollen: Jeder User ist Admin — kein role-Feld in V1
 
 ---
 
@@ -88,7 +90,7 @@ ssh -t -i ~/.ssh/fillqr/id_ed25519_jacky_fillqr -p 2222 jacky@91.99.113.226 "sud
 | xpgad.fillqr.de | Caddy → pgadmin:80 | pgAdmin (IP-Whitelist: nur Jacky) |
 | *.fillqr.de | Caddy → Next.js App:3000 | Oeffentliche Formulare je Tenant |
 
-**Tenant-Routing:** Next.js App liest Subdomain aus Request-Header → tenant_id aus DB. Wildcard-DNS + Wildcard-TLS (Cloudflare DNS-Challenge). ERP Buddy bleibt Betreiber-/Firmenseite, nicht Kundenportal.
+**Tenant-Routing:** Middleware liest Subdomain → setzt x-tenant-slug Header. Server-side get-tenant.ts löst slug zu {tenant, appKey} auf via tenant_apps. Reservierte Subdomains: app, www, admin, xpgad, demo, api. Wildcard-DNS + Wildcard-TLS (Cloudflare DNS-Challenge). ERP Buddy bleibt Betreiber-/Firmenseite, nicht Kundenportal.
 
 ---
 
@@ -395,4 +397,4 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-30 (Pflichtenheft V2: 3 Produkte, 8 Sprints, 64 APs)*
+*Zuletzt aktualisiert: 2026-03-30 (S0-AP03+AP04: Subdomain-Routing + appKey in Session + produktspezifische Nav)*
