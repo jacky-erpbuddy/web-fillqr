@@ -166,39 +166,23 @@ Hetzner CCX13 (91.99.113.226)
 - **App-User:** fillqr_app
 - **Backup:** taeglich 03:00, 7 Tage Retention, `/opt/fillqr/backups/`
 
-### V1-Kernobjekte (werden mit AP-07 angelegt)
+### Plattform-Modell (S0-AP01, 2026-03-30)
 
-| Modell | Zweck |
-|--------|-------|
-| tenant | Mandant (Kunde) |
-| app_user | Admin-Benutzer pro Tenant |
-| form | Formular-Definition |
-| form_field | Felder pro Formular |
-| submission | Einsendung |
-| audit_log | Aenderungsprotokoll |
+| Tabelle | Zweck |
+|---------|-------|
+| tbl_tenants | Mandant (Kunde) mit Adressdaten (name, street, zip, city, email, phone, logo_path) |
+| tbl_apps | Produkte (statisch: vereinsbuddy, trainerfeedback, messebuddy) |
+| tbl_tenant_apps | Zuordnung Tenant + Produkt + Subdomain (slug = Subdomain) |
+| tbl_app_users | Login-Accounts (E-Mail + Passwort, keine Rollen) |
 
-Submission-Speicherung: relational (submission_value) oder pragmatisch (payload_json) — Entscheidung in AP-07. Kein Mischmodell ohne klare Begruendung. Pragmatische, wartbare Loesung wichtiger als akademische Perfektion.
+Status ist ein String-Feld (kein Enum). Jeder User ist Admin — kein role-Feld.
 
-### Formularsystem V1
+### Tenant-Status
 
-V1 ist kein offener Form-Builder, sondern ein begrenzter Formularbaukasten.
-
-Erlaubte Feldtypen: text, textarea, email, phone, select, checkbox, date
-
-Nicht in V1: beliebig verschachtelte Bedingungen, Regel-Builder, komplexe Mehrseiten-Formulare, dynamische Felder mit Logik-Editor, freie Low-Code-Form-Engine.
-
-### Submission-Status
-
-- new
-- in_review
-- done
-- archived
-
-### Tenant-/Plan-Status
-
-- draft
+- active (Default)
 - trial
-- active
+- paused
+- cancelled
 - paused
 - cancelled
 
@@ -256,6 +240,107 @@ Abrechnung darf in V1 organisatorisch noch manuell bleiben.
 
 ---
 
+## Lokale Entwicklung
+
+### DB-Verbindung (SSH-Tunnel)
+
+Die PostgreSQL-DB laeuft auf dem Server. Fuer lokale Entwicklung und Tests SSH-Tunnel aufbauen:
+
+```bash
+# Terminal 1: SSH-Tunnel (bleibt offen)
+ssh -i ~/.ssh/fillqr/id_ed25519_jacky_fillqr -p 2222 -L 5433:127.0.0.1:5432 jacky@91.99.113.226 -N
+```
+
+Die lokale `.env` muss `DATABASE_URL` auf den Tunnel zeigen:
+```
+DATABASE_URL=postgresql://fillqr_app:<passwort>@localhost:5433/fillqr
+```
+
+**Tunnel-Check:** `curl -s telnet://localhost:5433` oder `npx prisma db pull --print` — wenn Fehler, Tunnel pruefen.
+
+### Dev-Server starten
+
+```bash
+cd C:/ERPBuddy/web/web-fillqr/fillqr-app
+
+# Prisma-Client generieren (nach Schema-Aenderungen)
+npx prisma generate
+
+# Dev-Server
+npm run dev
+```
+
+### Prisma-Migrationen (FALLE-077)
+
+`npx prisma migrate dev` braucht interaktives Terminal — geht NICHT in Claude Code.
+Stattdessen diesen Workflow nutzen:
+
+```bash
+# 1. SQL generieren (Diff zwischen aktueller DB und neuem Schema)
+npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > migration.sql
+
+# 2. SQL pruefen! Dann in Migrations-Ordner speichern
+mkdir -p prisma/migrations/YYYYMMDD_beschreibung
+mv migration.sql prisma/migrations/YYYYMMDD_beschreibung/migration.sql
+
+# 3. Migration als angewendet registrieren (nach manuellem Apply auf Server)
+npx prisma migrate resolve --applied YYYYMMDD_beschreibung
+```
+
+App laeuft auf http://localhost:3000. Fuer automatisierte Tests siehe `web-nextjs.md` Checkliste.
+
+### Testdaten
+
+Testdaten pruefen/erstellen via Prisma:
+```bash
+# Bestehende Daten pruefen
+npx tsx --eval "
+  import 'dotenv/config';
+  import { PrismaClient } from './src/generated/prisma/client.js';
+  const prisma = new PrismaClient();
+  const tenants = await prisma.tenant.findMany({ select: { slug: true, status: true } });
+  const forms = await prisma.form.findMany({ select: { slug: true, status: true, tenant: { select: { slug: true } } } });
+  console.log('Tenants:', tenants);
+  console.log('Forms:', forms);
+  await prisma.\$disconnect();
+"
+```
+
+Falls keine Testdaten vorhanden: Seed-Script anlegen oder ueber pgAdmin (xpgad.fillqr.de) manuell einfuegen.
+
+### tRPC-Endpoints testen
+
+tRPC Query-Procedures (GET) erwarten den Input als URL-encoded superjson:
+
+```bash
+# Format: input={"json":{"key":"value"}}
+curl -s "http://localhost:3000/api/trpc/form.getBySlug?input=%7B%22json%22%3A%7B%22tenantSlug%22%3A%22demo%22%2C%22formSlug%22%3A%22mitglied%22%7D%7D"
+
+# Lesbarer (node URL-Encoding):
+node -e "console.log(encodeURIComponent(JSON.stringify({json:{tenantSlug:'demo',formSlug:'mitglied'}})))"
+```
+
+- **Query** (GET): `input={json:{...}}` als URL-Parameter
+- **Mutation** (POST): `{json:{...}}` als Request-Body
+- POST auf eine Query → 405 METHOD_NOT_SUPPORTED
+- Falsches Input-Format → BAD_REQUEST (Zod-Fehler)
+
+### DB-Rechte (fillqr_app User)
+
+Prisma-Migrationen laufen als `postgres` (Superuser). Der App-User `fillqr_app` hat dann keine Rechte auf neue Tabellen. Nach manuellen Schema-Aenderungen oder neuen Migrationen:
+
+```sql
+-- Einmalig ausfuehren als postgres:
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO fillqr_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fillqr_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO fillqr_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO fillqr_app;
+```
+
+Die `ALTER DEFAULT PRIVILEGES` sorgen dafuer, dass zukuenftige Tabellen automatisch die richtigen Rechte bekommen. Muss nur einmal ausgefuehrt werden.
+
+---
+
 ## Deployment
 
 ### Aktuell (manuell)
@@ -273,33 +358,41 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 
 ---
 
-## Sprints und Fortschritt
+## Pflichtenheft + Sprints
 
-| Sprint | Thema | APs | Status |
-|--------|-------|-----|--------|
-| 0 | Scope und Infrastruktur | AP-00, AP-01, AP-02, AP-03, AP-04, AP-31 | AP-01/02/04 fertig, AP-03/31 wartet auf Cloudflare, AP-00 offen |
-| 1 | Fullstack-Projektbasis | AP-05, AP-06, AP-07, AP-37 | Offen |
-| 2 | Tenant- und Auth-Basis | AP-08, AP-09, AP-10, AP-28 | Offen |
-| 3 | tRPC und Server-Fachlogik | AP-11, AP-12, AP-13, AP-14, AP-15 | Offen |
-| 4 | Formularsystem V1 | AP-20, AP-21, AP-22 | Offen |
-| 5 | Admin-App V1 | AP-16, AP-17, AP-18, AP-19 | Offen |
-| 6 | Templates und Produktisierung | AP-23, AP-24, AP-25, AP-27 | Offen |
-| 7 | Kommunikation und Export | AP-26, AP-30 | Offen |
-| 8 | Landingpage und Demo | AP-29, AP-39 | Offen |
-| 9 | Plan- und Aktivlogik | AP-32, AP-33 | Offen |
-| 10 | Stabilitaet und Compliance | AP-34, AP-35, AP-36, AP-38 | Offen |
+**WICHTIG: V1-Pflichtenheft (TASK255) und alle alten APs sind ARCHIVIERT und nicht mehr gueltig.**
+
+**Verbindliche Quelle: Pflichtenheft V2 (TASK296)**
+- Notion: https://www.notion.so/3325201971f88124a9d4d35ee9927e41
+- 3 Produkte: VereinsBuddy, TrainerFeedback, MesseBuddy
+- 8 Sprints (S0-S7), 64 APs (TASK297-TASK360)
+- Unterseiten: VereinsBuddy, TrainerFeedback, MesseBuddy, Tenant-Architektur + DB-Modell, Betreiber-Panel, Landingpage, Ergaenzungen, Umsetzungsplan
+
+| Sprint | Thema | Tasks | Ziel |
+|--------|-------|-------|------|
+| S0 | DB-Umbau + Plattform | TASK297-305 | Neues Schema, Routing, Betreiber-Panel Basis |
+| S1 | VereinsBuddy Kern | TASK306-314 | Formular + Admin (ohne SEPA/Minderjaehrige) |
+| S2 | VereinsBuddy Komplett | TASK315-324 | SEPA, Minderjaehrige, E-Mail, CSV, Statistiken |
+| S3 | VereinsBuddy Demo | TASK325-330 | Erste verkaufbare Demo |
+| S4 | TrainerFeedback | TASK331-337 | Formular + Dashboard + Demo |
+| S5 | MesseBuddy | TASK338-346 | Formular + Lead-Inbox + Demo |
+| S6 | Betreiber-Panel Komplett | TASK347-353 | LexOffice, Branding, Zahlungsuebersicht |
+| S7 | Landingpage + Go-Live | TASK354-360 | Alles live, Werbung starten |
 
 ---
 
-## Rechtliches (Stand: Februar 2026)
+## Rechtliches (Stand: Maerz 2026)
 
-- Preise: 34,95 EUR/Monat + 99 EUR Design (inkl. MwSt)
+- VereinsBuddy: 34,95 EUR/Monat (12-Monats-Vertrag)
+- TrainerFeedback: 9,95 EUR/Monat (12-Monats-Vertrag)
+- MesseBuddy: Preis offen
+- Branding-Paket: 99 EUR einmalig
 - B2B-Ausrichtung: Verbraucher (§13 BGB) ausgeschlossen
 - Durchgehend Du-Form
 - USt-IdNr. im Impressum (DE370438727)
-- AVV-Hinweis vorhanden
+- AGB + AV-Vertrag: Entwuerfe in Notion (TASK296 Unterseiten)
 
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-27 (Architektur-Neuausrichtung: Next.js Fullstack statt NestJS+React)*
+*Zuletzt aktualisiert: 2026-03-30 (Pflichtenheft V2: 3 Produkte, 8 Sprints, 64 APs)*
