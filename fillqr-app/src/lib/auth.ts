@@ -1,19 +1,11 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import type { AppUserRole } from "@/generated/prisma/enums";
 
 export type AuthUser = {
   userId: string;
   tenantId: string;
   email: string;
-  role: AppUserRole;
-};
-
-const ROLE_LEVEL: Record<AppUserRole, number> = {
-  OWNER: 3,
-  ADMIN: 2,
-  EDITOR: 1,
 };
 
 /**
@@ -30,12 +22,11 @@ export async function requireAuth(): Promise<AuthUser> {
     redirect("/login");
   }
 
-  if (!session.userId || !session.tenantId || !session.email || !session.role) {
+  if (!session.userId || !session.tenantId || !session.email) {
     console.error("[AUTH] session fields missing:", {
       hasUserId: !!session.userId,
       hasTenantId: !!session.tenantId,
       hasEmail: !!session.email,
-      hasRole: !!session.role,
     });
     redirect("/login");
   }
@@ -46,7 +37,7 @@ export async function requireAuth(): Promise<AuthUser> {
     select: { status: true },
   });
 
-  if (!tenant || (tenant.status !== "ACTIVE" && tenant.status !== "TRIAL")) {
+  if (!tenant || (tenant.status !== "active" && tenant.status !== "trial")) {
     // Session aufraumen, dann redirect
     session.destroy();
     redirect("/login?error=Konto+deaktiviert");
@@ -56,22 +47,7 @@ export async function requireAuth(): Promise<AuthUser> {
     userId: session.userId,
     tenantId: session.tenantId,
     email: session.email,
-    role: session.role as AppUserRole,
   };
-}
-
-/**
- * Prueft ob der User mindestens die angegebene Rolle hat.
- * Hierarchie: OWNER > ADMIN > EDITOR
- */
-export async function requireRole(minRole: AppUserRole): Promise<AuthUser> {
-  const user = await requireAuth();
-
-  if (ROLE_LEVEL[user.role] < ROLE_LEVEL[minRole]) {
-    redirect("/admin/dashboard?error=Keine+Berechtigung");
-  }
-
-  return user;
 }
 
 /**

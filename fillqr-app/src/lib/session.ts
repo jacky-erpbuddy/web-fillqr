@@ -7,7 +7,6 @@ export interface SessionData {
   userId: string;
   tenantId: string;
   email: string;
-  role: string;
 }
 
 const sessionOptions = {

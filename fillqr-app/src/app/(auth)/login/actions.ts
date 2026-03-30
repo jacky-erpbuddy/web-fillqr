@@ -33,7 +33,7 @@ export async function login(formData: FormData) {
     select: { status: true },
   });
 
-  if (!tenant || (tenant.status !== "ACTIVE" && tenant.status !== "TRIAL")) {
+  if (!tenant || (tenant.status !== "active" && tenant.status !== "trial")) {
     redirect("/login?error=Konto+deaktiviert");
   }
 
@@ -41,7 +41,6 @@ export async function login(formData: FormData) {
   session.userId = user.id;
   session.tenantId = user.tenantId;
   session.email = user.email;
-  session.role = user.role;
   await session.save();
 
   redirect("/admin/dashboard");

@@ -29,14 +29,11 @@ export default async function AdminLayout({
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1">
             <NavLink href="/admin/dashboard">Dashboard</NavLink>
-            <NavLink href="/admin/submissions">Einsendungen</NavLink>
-            <NavLink href="/admin/forms">Formulare</NavLink>
           </nav>
 
           {/* User Info + Logout */}
           <div className="px-6 py-4 border-t border-gray-200">
             <p className="text-sm text-gray-600 truncate">{user.email}</p>
-            <p className="text-xs text-gray-400">{user.role}</p>
             <form action="/logout" method="POST" style={{ marginTop: 8 }}>
               <button
                 type="submit"

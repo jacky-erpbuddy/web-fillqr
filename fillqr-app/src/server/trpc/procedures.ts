@@ -1,16 +1,9 @@
 import { publicProcedure, middleware, TRPCError } from "./init";
 import type { AuthUser } from "@/lib/auth";
-import type { AppUserRole } from "@/generated/prisma/enums";
 
 /** Context-Erweiterung nach Auth-Pruefung */
 type ProtectedContext = {
   user: AuthUser;
-};
-
-const ROLE_LEVEL: Record<AppUserRole, number> = {
-  OWNER: 3,
-  ADMIN: 2,
-  EDITOR: 1,
 };
 
 /**
@@ -28,7 +21,7 @@ const isAuthed = middleware(async ({ ctx, next }) => {
     select: { status: true },
   });
 
-  if (!tenant || (tenant.status !== "ACTIVE" && tenant.status !== "TRIAL")) {
+  if (!tenant || (tenant.status !== "active" && tenant.status !== "trial")) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Konto deaktiviert" });
   }
 
@@ -36,7 +29,6 @@ const isAuthed = middleware(async ({ ctx, next }) => {
     userId: ctx.session.userId,
     tenantId: ctx.session.tenantId,
     email: ctx.session.email,
-    role: ctx.session.role as AppUserRole,
   };
 
   return next({ ctx: { user } satisfies ProtectedContext });
@@ -47,5 +39,3 @@ export { publicProcedure };
 
 /** Procedure mit Auth — nur eingeloggte User mit aktivem Tenant */
 export const protectedProcedure = publicProcedure.use(isAuthed);
-
-export { ROLE_LEVEL };

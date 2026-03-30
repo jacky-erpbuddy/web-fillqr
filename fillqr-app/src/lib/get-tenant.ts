@@ -9,13 +9,14 @@ export async function getTenant() {
     return null;
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenantApp = await prisma.tenantApp.findUnique({
     where: { slug },
+    include: { tenant: true },
   });
 
-  if (!tenant || (tenant.status !== "ACTIVE" && tenant.status !== "TRIAL")) {
+  if (!tenantApp || (tenantApp.tenant.status !== "active" && tenantApp.tenant.status !== "trial")) {
     return null;
   }
 
-  return tenant;
+  return tenantApp.tenant;
 }

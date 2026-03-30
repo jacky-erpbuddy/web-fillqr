@@ -18,7 +18,6 @@ export async function createContext(): Promise<TRPCContext> {
         userId: ironSession.userId,
         tenantId: ironSession.tenantId,
         email: ironSession.email,
-        role: ironSession.role,
       };
     }
   } catch {

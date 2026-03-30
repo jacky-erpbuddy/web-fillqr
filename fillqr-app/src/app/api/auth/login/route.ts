@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     select: { status: true },
   });
 
-  if (!tenant || (tenant.status !== "ACTIVE" && tenant.status !== "TRIAL")) {
+  if (!tenant || (tenant.status !== "active" && tenant.status !== "trial")) {
     return NextResponse.redirect(
       `${baseUrl}/login?error=${encodeURIComponent("Konto deaktiviert")}`,
       303
@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
   session.userId = user.id;
   session.tenantId = user.tenantId;
   session.email = user.email;
-  session.role = user.role;
   await session.save();
 
   return NextResponse.redirect(`${baseUrl}/admin/dashboard`, 303);
