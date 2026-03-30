@@ -180,6 +180,20 @@ Hetzner CCX13 (91.99.113.226)
 
 Status ist ein String-Feld (kein Enum). Jeder User ist Admin — kein role-Feld.
 
+### Email & Auth-Token (S0-AP06/AP07, 2026-03-30)
+
+| Feature | Details |
+|---------|---------|
+| SMTP | nodemailer, smtp.variomedia.de:587, STARTTLS |
+| Absender | noreply@fillqr.de |
+| Invite-Flow | Betreiber legt User an → Token (48h, UUID) → Mail → /set-password?token=xxx |
+| Reset-Flow | /forgot-password → Token (1h, UUID) → Mail → /reset-password?token=xxx |
+| Token-Felder | tbl_app_users: invite_token, invite_expires_at, reset_token, reset_expires_at |
+| Rate-Limiting | forgot-password: 3 Requests/Email/Stunde (In-Memory, V1) |
+| Sicherheit | Kein Account-Enumeration, bcrypt(10), Token nach Use geloescht |
+| Public Routes | /set-password, /forgot-password, /reset-password, /login — via Caddy ohne Basic Auth (*.fillqr.de) |
+| Email-Links | Tenant-Subdomain: https://slug.fillqr.de/set-password?token=xxx |
+
 ### Tenant-Status
 
 - active (Default)
@@ -398,4 +412,4 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-30 (S0-AP05: Betreiber-Panel admin.fillqr.de — Auth, tRPC Router, Tenant-CRUD, Caddy)*
+*Zuletzt aktualisiert: 2026-03-30 (S0-AP06+AP07: Einladungsmail, Passwort-vergessen, SMTP-Service, Public Auth Routes in Caddy)*
