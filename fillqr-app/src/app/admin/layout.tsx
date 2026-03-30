@@ -2,6 +2,30 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+type NavItem = { href: string; label: string };
+
+const NAV_MAP: Record<string, NavItem[]> = {
+  vereinsbuddy: [
+    { href: "/admin/dashboard", label: "Dashboard" },
+    { href: "/admin/mitglieder", label: "Mitglieder" },
+    { href: "/admin/einstellungen", label: "Einstellungen" },
+  ],
+  trainerfeedback: [
+    { href: "/admin/dashboard", label: "Dashboard" },
+    { href: "/admin/kurse", label: "Kurse" },
+    { href: "/admin/einstellungen", label: "Einstellungen" },
+  ],
+  messebuddy: [
+    { href: "/admin/leads", label: "Leads" },
+    { href: "/admin/events", label: "Events" },
+    { href: "/admin/einstellungen", label: "Einstellungen" },
+  ],
+};
+
+const DEFAULT_NAV: NavItem[] = [
+  { href: "/admin/dashboard", label: "Dashboard" },
+];
+
 export default async function AdminLayout({
   children,
 }: {
@@ -13,6 +37,8 @@ export default async function AdminLayout({
     where: { id: user.tenantId },
     select: { name: true },
   });
+
+  const navItems = NAV_MAP[user.appKey] ?? DEFAULT_NAV;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -28,7 +54,11 @@ export default async function AdminLayout({
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1">
-            <NavLink href="/admin/dashboard">Dashboard</NavLink>
+            {navItems.map((item) => (
+              <NavLink key={item.href} href={item.href}>
+                {item.label}
+              </NavLink>
+            ))}
           </nav>
 
           {/* User Info + Logout */}

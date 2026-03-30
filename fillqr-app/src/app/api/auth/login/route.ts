@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { resolveAppKeyForLogin } from "@/lib/get-tenant";
 
 /**
  * Login via klassischem Form-POST.
@@ -46,10 +47,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // appKey aus Subdomain oder Fallback (erste aktive App)
+  const appKey = await resolveAppKeyForLogin(host, user.tenantId);
+
+  if (!appKey) {
+    return NextResponse.redirect(
+      `${baseUrl}/login?error=${encodeURIComponent("Kein Produkt zugeordnet")}`,
+      303
+    );
+  }
+
   const session = await getSession();
   session.userId = user.id;
   session.tenantId = user.tenantId;
   session.email = user.email;
+  session.appKey = appKey;
   await session.save();
 
   return NextResponse.redirect(`${baseUrl}/admin/dashboard`, 303);

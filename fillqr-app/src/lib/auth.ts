@@ -6,11 +6,13 @@ export type AuthUser = {
   userId: string;
   tenantId: string;
   email: string;
+  appKey: string;
 };
 
 /**
  * Massgebliche Sicherheitspruefung fuer geschuetzte Routen.
  * Prueft Session-Gueltigkeit UND Tenant-Status in DB.
+ * Alte Sessions ohne appKey → Force-Logout.
  */
 export async function requireAuth(): Promise<AuthUser> {
   let session;
@@ -31,6 +33,12 @@ export async function requireAuth(): Promise<AuthUser> {
     redirect("/login");
   }
 
+  // Alte Sessions ohne appKey → Force-Logout
+  if (!session.appKey) {
+    session.destroy();
+    redirect("/login");
+  }
+
   // Tenant-Status in DB pruefen (koennte zwischenzeitlich deaktiviert worden sein)
   const tenant = await prisma.tenant.findUnique({
     where: { id: session.tenantId },
@@ -47,6 +55,7 @@ export async function requireAuth(): Promise<AuthUser> {
     userId: session.userId,
     tenantId: session.tenantId,
     email: session.email,
+    appKey: session.appKey,
   };
 }
 

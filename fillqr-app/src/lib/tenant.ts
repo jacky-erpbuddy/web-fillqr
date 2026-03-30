@@ -1,4 +1,4 @@
-const RESERVED_SUBDOMAINS = ["app", "www", "xpgad", "api"];
+const RESERVED_SUBDOMAINS = ["app", "www", "admin", "xpgad", "demo", "api"];
 
 function getBaseDomain(): string {
   return process.env.BASE_DOMAIN ?? "fillqr.de";

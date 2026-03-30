@@ -29,6 +29,7 @@ const isAuthed = middleware(async ({ ctx, next }) => {
     userId: ctx.session.userId,
     tenantId: ctx.session.tenantId,
     email: ctx.session.email,
+    appKey: ctx.session.appKey,
   };
 
   return next({ ctx: { user } satisfies ProtectedContext });

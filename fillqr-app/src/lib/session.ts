@@ -7,6 +7,7 @@ export interface SessionData {
   userId: string;
   tenantId: string;
   email: string;
+  appKey: string;
 }
 
 const sessionOptions = {
