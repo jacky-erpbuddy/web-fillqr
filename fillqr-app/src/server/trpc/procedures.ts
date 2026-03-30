@@ -35,8 +35,26 @@ const isAuthed = middleware(async ({ ctx, next }) => {
   return next({ ctx: { user } satisfies ProtectedContext });
 });
 
+/**
+ * Betreiber-Middleware: Prueft Betreiber-Session (admin.fillqr.de).
+ * Kein Tenant-Check — Betreiber hat Zugriff auf alle Tenants.
+ */
+const isBetreiber = middleware(async ({ ctx, next }) => {
+  if (!ctx.betreiberSession?.isBetreiber) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Kein Betreiber-Zugang",
+    });
+  }
+
+  return next();
+});
+
 /** Procedure ohne Auth — jeder kann zugreifen */
 export { publicProcedure };
 
 /** Procedure mit Auth — nur eingeloggte User mit aktivem Tenant */
 export const protectedProcedure = publicProcedure.use(isAuthed);
+
+/** Procedure mit Betreiber-Auth — nur Betreiber (admin.fillqr.de) */
+export const betreiberProcedure = publicProcedure.use(isBetreiber);

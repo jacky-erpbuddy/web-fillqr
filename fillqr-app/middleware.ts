@@ -1,25 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractSubdomain, isReserved } from "@/lib/tenant";
-import { SESSION_COOKIE_NAME } from "@/lib/session";
 
-/** Exakte Pfade die ohne Login erreichbar sein muessen */
+// Cookie-Namen direkt definieren (NICHT aus session/betreiber-session importieren,
+// da diese iron-session + cookies() importieren — inkompatibel mit Edge Runtime)
+const SESSION_COOKIE_NAME = "fillqr_session";
+const BETREIBER_COOKIE_NAME = "fillqr_betreiber";
+
+/** Exakte Pfade die ohne Login erreichbar sein muessen (Kunden-App) */
 const PUBLIC_PATHS = new Set(["/login", "/logout", "/api/health", "/"]);
 
-/** Pfad-Prefixe die oeffentlich bleiben */
+/** Pfad-Prefixe die oeffentlich bleiben (Kunden-App) */
 const PUBLIC_PREFIXES = ["/f/", "/api/"];
+
+/** Betreiber-Pfade die ohne Betreiber-Session erreichbar sind */
+const BETREIBER_PUBLIC_PATHS = new Set([
+  "/login",
+  "/api/auth/betreiber-login",
+  "/api/health",
+]);
+
+/** Pfade die NUR ueber admin.fillqr.de erreichbar sein sollen */
+const BETREIBER_ONLY_PREFIXES = ["/tenants"];
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
-export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
-  const { pathname } = request.nextUrl;
+function isBetreiberPublicPath(pathname: string): boolean {
+  if (BETREIBER_PUBLIC_PATHS.has(pathname)) return true;
+  return pathname.startsWith("/api/");
+}
 
-  // --- Tenant-Slug aus Subdomain (bestehende Logik aus AP-08) ---
+function isBetreiberHost(host: string): boolean {
+  const hostname = host.split(":")[0].toLowerCase();
+  return hostname === "admin.fillqr.de" || hostname === "admin.localhost";
+}
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") ?? "";
+
+  // --- Betreiber-Panel: admin.fillqr.de ---
+  if (isBetreiberHost(host)) {
+    // Auth-Guard: Betreiber-Cookie pruefen auf nicht-oeffentlichen Pfaden
+    if (!isBetreiberPublicPath(pathname)) {
+      const betreiberCookie = request.cookies.get(BETREIBER_COOKIE_NAME);
+      if (!betreiberCookie) {
+        return NextResponse.redirect(new URL("/login", request.url));
+      }
+    }
+
+    // x-betreiber Header setzen — Login-Page nutzt ihn fuer Host-Check
+    const response = NextResponse.next();
+    response.headers.set("x-betreiber", "true");
+    return response;
+  }
+
+  // --- Sicherheit: /tenants/* von Nicht-Admin-Hosts blockieren ---
+  if (BETREIBER_ONLY_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // --- Kunden-App: Bestehende Logik ---
+  const response = NextResponse.next();
+
   try {
-    const host = request.headers.get("host") ?? "";
     let slug = extractSubdomain(host);
 
     // Dev-Fallback: ?tenant=slug wenn kein Subdomain-Routing
@@ -34,15 +80,11 @@ export function middleware(request: NextRequest) {
     console.error("Tenant middleware error:", error);
   }
 
-  // --- Auth-Guard: Cookie-Existenz pruefen (kein Decrypt) ---
+  // Auth-Guard: Cookie-Existenz pruefen (kein Decrypt)
   if (!isPublicPath(pathname)) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
-    const rsc = request.headers.get("rsc") ?? "";
-    const prefetch = request.headers.get("next-router-prefetch") ?? "";
-    console.log(`[MW] ${pathname} — cookie: ${sessionCookie ? "present" : "MISSING"} | rsc=${rsc} prefetch=${prefetch}`);
     if (!sessionCookie) {
-      const loginUrl = new URL("/login", request.url);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 

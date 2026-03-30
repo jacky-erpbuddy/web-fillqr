@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+
 export const dynamic = "force-dynamic";
 
 type Props = {
@@ -8,6 +10,53 @@ export default async function LoginPage({ searchParams }: Props) {
   const params = await searchParams;
   const error = params.error;
 
+  // Host-Check: Betreiber-Host → nur Passwort, sonst → E-Mail + Passwort
+  const headersList = await headers();
+  const isBetreiber = headersList.get("x-betreiber") === "true";
+
+  if (isBetreiber) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="w-full max-w-sm bg-white rounded-lg shadow-md p-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Betreiber-Panel
+          </h1>
+          <p className="text-sm text-gray-500 mb-6">fillQR Administration</p>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <form action="/api/auth/betreiber-login" method="POST">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Passwort
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              type="submit"
+              className="mt-4 w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Anmelden
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Kunden-Login (bestehend)
   return (
     <div style={{ maxWidth: 400, margin: "80px auto", padding: "0 20px" }}>
       <h1 style={{ marginBottom: 24 }}>fillQR Admin</h1>

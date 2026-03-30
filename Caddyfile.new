@@ -1,0 +1,85 @@
+# Wildcard TLS via Cloudflare DNS Challenge
+(cloudflare_tls) {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+}
+
+# Secured: IP-Whitelist + Basic Auth
+(secured) {
+	@allowed remote_ip 91.249.181.74 188.245.49.34 100.64.0.0/10
+	handle @allowed {
+		basic_auth {
+			jacky {$AM_ADMIN_BASICAUTH_HASH}
+		}
+	}
+	respond "Forbidden" 403
+}
+
+# fillQR — Landing Page (OEFFENTLICH)
+fillqr.de, www.fillqr.de {
+	root * /srv/landing
+	file_server
+}
+
+# fillQR — pgAdmin (gesichert)
+xpgad.fillqr.de {
+	import cloudflare_tls
+	@allowed remote_ip 91.249.181.74 188.245.49.34 100.64.0.0/10
+	handle @allowed {
+		basic_auth {
+			jacky {$AM_ADMIN_BASICAUTH_HASH}
+		}
+		reverse_proxy pgadmin:80
+	}
+	respond "Forbidden" 403
+}
+
+# fillQR — Betreiber-Panel (gesichert + reverse proxy)
+admin.fillqr.de {
+	@allowed remote_ip 91.249.181.74 188.245.49.34 100.64.0.0/10
+	handle @allowed {
+		basic_auth {
+			jacky {$AM_ADMIN_BASICAUTH_HASH}
+		}
+		reverse_proxy fillqr-app:3000
+	}
+	respond "Forbidden" 403
+}
+
+# fillQR — Admin App (gesichert + reverse proxy)
+app.fillqr.de {
+	@allowed remote_ip 91.249.181.74 188.245.49.34 100.64.0.0/10
+	handle @allowed {
+		basic_auth {
+			jacky {$AM_ADMIN_BASICAUTH_HASH}
+		}
+		reverse_proxy fillqr-app:3000
+	}
+	respond "Forbidden" 403
+}
+
+# fillQR — Demo (gesichert + reverse proxy)
+demo.fillqr.de {
+	@allowed remote_ip 91.249.181.74 188.245.49.34 100.64.0.0/10
+	handle @allowed {
+		basic_auth {
+			jacky {$AM_ADMIN_BASICAUTH_HASH}
+		}
+		reverse_proxy fillqr-app:3000
+	}
+	respond "Forbidden" 403
+}
+
+# fillQR — Tenant Wildcard (gesichert + reverse proxy)
+*.fillqr.de {
+	import cloudflare_tls
+	@allowed remote_ip 91.249.181.74 188.245.49.34 100.64.0.0/10
+	handle @allowed {
+		basic_auth {
+			jacky {$AM_ADMIN_BASICAUTH_HASH}
+		}
+		reverse_proxy fillqr-app:3000
+	}
+	respond "Forbidden" 403
+}
