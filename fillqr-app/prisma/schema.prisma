@@ -57,12 +57,16 @@ model TenantApp {
 }
 
 model AppUser {
-  id           String   @id @default(cuid())
-  tenantId     String   @map("tenant_id")
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt      @map("updated_at")
+  id              String    @id @default(cuid())
+  tenantId        String    @map("tenant_id")
+  email           String    @unique
+  passwordHash    String    @map("password_hash")
+  inviteToken     String?   @unique @map("invite_token")
+  inviteExpiresAt DateTime? @map("invite_expires_at")
+  resetToken      String?   @unique @map("reset_token")
+  resetExpiresAt  DateTime? @map("reset_expires_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt      @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

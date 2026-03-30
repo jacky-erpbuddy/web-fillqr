@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import TenantEditForm from "./tenant-edit-form";
 import AddProductForm from "./add-product-form";
+import AddUserForm from "./add-user-form";
 
 export default async function TenantDetailPage({
   params,
@@ -94,7 +95,7 @@ export default async function TenantDetailPage({
         {tenant.appUsers.length === 0 ? (
           <p className="text-gray-500">Keine Users angelegt.</p>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 mb-4">
             <thead>
               <tr>
                 <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2">
@@ -117,6 +118,7 @@ export default async function TenantDetailPage({
             </tbody>
           </table>
         )}
+        <AddUserForm tenantId={tenant.id} />
       </section>
     </div>
   );

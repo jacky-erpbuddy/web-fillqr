@@ -123,6 +123,15 @@ export default async function LoginPage({ searchParams }: Props) {
         >
           Anmelden
         </button>
+
+        <p style={{ marginTop: 16, textAlign: "center" }}>
+          <a
+            href="/forgot-password"
+            style={{ color: "#2563eb", textDecoration: "underline", fontSize: 14 }}
+          >
+            Passwort vergessen?
+          </a>
+        </p>
       </form>
     </div>
   );

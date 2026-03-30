@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { randomUUID } from "crypto";
 import { router, TRPCError } from "../init";
 import { betreiberProcedure } from "../procedures";
+import { sendMail, buildInviteEmail } from "@/lib/email";
 
 /** Reservierte Subdomains — duerfen nicht als Tenant-Slug vergeben werden */
 const RESERVED_SLUGS = [
@@ -191,5 +193,70 @@ export const betreiberRouter = router({
           slug: input.slug,
         },
       });
+    }),
+
+  addUser: betreiberProcedure
+    .input(
+      z.object({
+        tenantId: z.string(),
+        email: z.string().email("Ungueltige E-Mail"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const email = input.email.trim().toLowerCase();
+
+      // Pruefen ob Email bereits existiert
+      const existing = await ctx.prisma.appUser.findUnique({
+        where: { email },
+      });
+
+      if (existing) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "E-Mail-Adresse bereits vergeben",
+        });
+      }
+
+      // Tenant + ersten Slug fuer Email-Link holen
+      const tenantApp = await ctx.prisma.tenantApp.findFirst({
+        where: { tenantId: input.tenantId, isEnabled: true },
+        select: { slug: true },
+      });
+
+      if (!tenantApp) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Tenant hat kein aktives Produkt — bitte zuerst ein Produkt zuordnen",
+        });
+      }
+
+      const inviteToken = randomUUID();
+      const inviteExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+
+      const user = await ctx.prisma.appUser.create({
+        data: {
+          tenantId: input.tenantId,
+          email,
+          passwordHash: "INVITE_PENDING",
+          inviteToken,
+          inviteExpiresAt,
+        },
+      });
+
+      // Mail senden — bei Fehler: User bleibt, Warnung zurueckgeben
+      const link = `https://${tenantApp.slug}.fillqr.de/set-password?token=${inviteToken}`;
+      const { subject, html } = buildInviteEmail(link);
+
+      try {
+        await sendMail(email, subject, html);
+      } catch (err) {
+        console.error("[INVITE] Mail-Versand fehlgeschlagen:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "User angelegt, aber Einladungs-Mail konnte nicht gesendet werden. Token ist in der DB — Link kann manuell weitergegeben werden.",
+        });
+      }
+
+      return user;
     }),
 });
