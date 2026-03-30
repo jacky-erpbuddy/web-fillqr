@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcrypt";
 import { getBetreiberSession } from "@/lib/betreiber-session";
 
 export async function POST(request: NextRequest) {
@@ -21,17 +20,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const hash = process.env.BETREIBER_PASSWORD_HASH;
-  if (!hash) {
-    console.error("[BETREIBER-LOGIN] BETREIBER_PASSWORD_HASH nicht gesetzt");
+  const expected = process.env.BETREIBER_PASSWORD;
+  if (!expected) {
+    console.error("[BETREIBER-LOGIN] BETREIBER_PASSWORD nicht gesetzt");
     return NextResponse.redirect(
       `${baseUrl}/login?error=${encodeURIComponent("Serverfehler")}`,
       303,
     );
   }
 
-  const valid = await bcrypt.compare(password, hash);
-  if (!valid) {
+  if (password !== expected) {
     return NextResponse.redirect(
       `${baseUrl}/login?error=${encodeURIComponent("Ungültiges Passwort")}`,
       303,
