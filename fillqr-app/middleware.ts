@@ -51,10 +51,11 @@ export function middleware(request: NextRequest) {
       }
     }
 
-    // x-betreiber Header setzen — Login-Page nutzt ihn fuer Host-Check
-    const response = NextResponse.next();
-    response.headers.set("x-betreiber", "true");
-    return response;
+    // x-betreiber Header als Request-Header setzen (nicht Response-Header!)
+    // Server Components lesen headers() = Request-Headers
+    const betreiberHeaders = new Headers(request.headers);
+    betreiberHeaders.set("x-betreiber", "true");
+    return NextResponse.next({ request: { headers: betreiberHeaders } });
   }
 
   // --- Sicherheit: /tenants/* von Nicht-Admin-Hosts blockieren ---
