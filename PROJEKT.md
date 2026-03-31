@@ -180,6 +180,17 @@ Hetzner CCX13 (91.99.113.226)
 
 Status ist ein String-Feld (kein Enum). Jeder User ist Admin — kein role-Feld.
 
+### VereinsBuddy-Modell (S1-AP10, 2026-03-31)
+
+| Tabelle | Zweck |
+|---------|-------|
+| tbl_members | Vereinsmitglieder (Name, Adresse, Status, Beitragsdaten) |
+| tbl_membership_types | Beitragsarten pro Tenant (Name, Betrag, aktiv/inaktiv) |
+| tbl_departments | Abteilungen pro Tenant (Name, Zusatzbeitrag) |
+| tbl_member_departments | N:M Zuordnung Member ↔ Department (Composite PK) |
+
+Member-Status: eingegangen → in_pruefung → angenommen → abgelehnt → gekuendigt (String, kein Enum).
+
 ### Email & Auth-Token (S0-AP06/AP07, 2026-03-30)
 
 | Feature | Details |
@@ -412,4 +423,4 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-30 (S0-AP06+AP07: Einladungsmail, Passwort-vergessen, SMTP-Service, Public Auth Routes in Caddy)*
+*Zuletzt aktualisiert: 2026-03-31 (S1-AP10: VereinsBuddy Prisma-Schema — 4 neue Models + Migration)*
