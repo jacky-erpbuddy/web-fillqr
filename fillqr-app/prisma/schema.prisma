@@ -129,6 +129,7 @@ model Member {
   paymentMethod    String?   @map("payment_method")
   photoPath        String?   @map("photo_path")
   notes            String?
+  statusHistory    Json?     @map("status_history")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt      @map("updated_at")
 
