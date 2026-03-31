@@ -39,26 +39,34 @@ export default async function Home() {
   const { tenant, appKey } = result;
 
   if (appKey === "vereinsbuddy") {
-    const [membershipTypes, departments, tenantApp] = await Promise.all([
-      prisma.membershipType.findMany({
-        where: { tenantId: tenant.id, isActive: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.department.findMany({
-        where: { tenantId: tenant.id, isActive: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.tenantApp.findFirst({
-        where: { tenantId: tenant.id, app: { key: "vereinsbuddy" } },
-        select: { settingsJson: true },
-      }),
-    ]);
+    const [tenantFull, membershipTypes, departments, tenantApp] =
+      await Promise.all([
+        prisma.tenant.findUnique({
+          where: { id: tenant.id },
+          select: { street: true, zip: true, city: true },
+        }),
+        prisma.membershipType.findMany({
+          where: { tenantId: tenant.id, isActive: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.department.findMany({
+          where: { tenantId: tenant.id, isActive: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.tenantApp.findFirst({
+          where: { tenantId: tenant.id, app: { key: "vereinsbuddy" } },
+          select: { settingsJson: true },
+        }),
+      ]);
 
     const settings = parseSettings(tenantApp?.settingsJson);
 
     return (
       <MembershipForm
         tenantName={tenant.name}
+        tenantStreet={tenantFull?.street ?? ""}
+        tenantZip={tenantFull?.zip ?? ""}
+        tenantCity={tenantFull?.city ?? ""}
         membershipTypes={membershipTypes.map((t) => ({
           id: t.id,
           name: t.name,
@@ -72,6 +80,10 @@ export default async function Home() {
         settings={{
           zahlungsintervalle: settings.zahlungsintervalle,
           telefonSichtbar: settings.optionale_felder.telefon,
+          aufnahmegebuehr: settings.aufnahmegebuehr,
+          satzungUrl: settings.satzung_url,
+          beitragsordnungUrl: settings.beitragsordnung_url,
+          impressum: settings.impressum,
         }}
       />
     );
