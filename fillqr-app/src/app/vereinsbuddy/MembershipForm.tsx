@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Turnstile from "@/components/Turnstile";
 
 // ─── Types ───
@@ -76,11 +77,13 @@ export default function MembershipForm({
   departments,
   settings,
 }: Props) {
+  const router = useRouter();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
   const [selectedTypeId, setSelectedTypeId] = useState("");
   const [selectedInterval, setSelectedInterval] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function toggleDept(id: string) {
     setSelectedDepts((prev) =>
@@ -107,26 +110,49 @@ export default function MembershipForm({
 
   // ─── Submit ───
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // AP-15 wird die Server-Logik implementieren
-    setSubmitted(true);
-  }
+    setSubmitting(true);
+    setSubmitError(null);
 
-  if (submitted) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-lg text-center py-12">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Vielen Dank!
-          </h1>
-          <p className="text-gray-600">
-            Dein Mitgliedsantrag wird vorbereitet. Die Verarbeitung wird in
-            Kuerze verfuegbar sein.
-          </p>
-        </div>
-      </main>
-    );
+    const form = new FormData(e.currentTarget);
+
+    const body = {
+      turnstileToken,
+      firstName: form.get("firstName") as string,
+      lastName: form.get("lastName") as string,
+      street: form.get("street") as string,
+      zip: form.get("zip") as string,
+      city: form.get("city") as string,
+      email: form.get("email") as string,
+      birthdate: form.get("birthdate") as string,
+      phone: (form.get("phone") as string) || undefined,
+      membershipTypeId: selectedTypeId,
+      paymentInterval: selectedInterval,
+      entryDate: (form.get("entryDate") as string) || undefined,
+      departmentIds: selectedDepts,
+    };
+
+    try {
+      const res = await fetch("/api/vereinsbuddy/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSubmitError(data.error ?? "Fehler beim Absenden");
+        return;
+      }
+
+      router.push(`/vereinsbuddy/success?id=${data.memberId}`);
+    } catch {
+      setSubmitError("Netzwerkfehler — bitte versuche es erneut");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -525,12 +551,17 @@ export default function MembershipForm({
 
           {/* ─── Submit ─── */}
           <div>
+            {submitError && (
+              <div className="p-3 rounded text-sm bg-red-50 border border-red-200 text-red-700 mb-3">
+                {submitError}
+              </div>
+            )}
             <button
               type="submit"
-              disabled={!turnstileToken}
+              disabled={!turnstileToken || submitting}
               className="w-full px-4 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-base"
             >
-              Antrag verbindlich absenden
+              {submitting ? "Wird gesendet..." : "Antrag verbindlich absenden"}
             </button>
             {!turnstileToken && (
               <p className="text-xs text-gray-400 mt-2 text-center">

@@ -7,7 +7,7 @@ const SESSION_COOKIE_NAME = "fillqr_session";
 const BETREIBER_COOKIE_NAME = "fillqr_betreiber";
 
 /** Exakte Pfade die ohne Login erreichbar sein muessen (Kunden-App) */
-const PUBLIC_PATHS = new Set(["/login", "/logout", "/api/health", "/"]);
+const PUBLIC_PATHS = new Set(["/login", "/logout", "/api/health", "/", "/vereinsbuddy/success"]);
 
 /** Pfad-Prefixe die oeffentlich bleiben (Kunden-App) */
 const PUBLIC_PREFIXES = ["/f/", "/api/"];

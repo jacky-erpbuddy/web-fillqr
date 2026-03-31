@@ -47,6 +47,48 @@ export function buildInviteEmail(link: string): { subject: string; html: string 
   };
 }
 
+export function buildMemberConfirmEmail(tenantName: string): {
+  subject: string;
+  html: string;
+} {
+  return {
+    subject: `Dein Mitgliedsantrag bei ${tenantName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Vielen Dank fuer deinen Antrag!</h2>
+        <p>Deine Daten wurden an den <strong>${tenantName}</strong> uebermittelt.</p>
+        <p>Die Aufnahme erfolgt nach Pruefung durch den Vorstand. Du erhaeltst eine weitere Nachricht sobald ueber deinen Antrag entschieden wurde.</p>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">
+          Diese E-Mail wurde automatisch versendet. Bitte antworte nicht auf diese Nachricht.
+        </p>
+      </div>
+    `,
+  };
+}
+
+export function buildMemberNotifyEmail(
+  tenantName: string,
+  firstName: string,
+  lastName: string,
+  email: string,
+): { subject: string; html: string } {
+  return {
+    subject: `Neuer Mitgliedsantrag: ${firstName} ${lastName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Neuer Mitgliedsantrag</h2>
+        <p>Bei <strong>${tenantName}</strong> ist ein neuer Antrag eingegangen:</p>
+        <table style="border-collapse: collapse; margin: 16px 0;">
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Name:</td><td>${firstName} ${lastName}</td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">E-Mail:</td><td>${email}</td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Status:</td><td>eingegangen</td></tr>
+        </table>
+        <p>Bitte pruefe den Antrag im Admin-Bereich.</p>
+      </div>
+    `,
+  };
+}
+
 export function buildResetEmail(link: string): { subject: string; html: string } {
   return {
     subject: "fillQR — Passwort zuruecksetzen",
