@@ -191,6 +191,18 @@ Status ist ein String-Feld (kein Enum). Jeder User ist Admin — kein role-Feld.
 
 Member-Status: eingegangen → in_pruefung → angenommen → abgelehnt → gekuendigt (String, kein Enum).
 
+### Admin-Einstellungen (S1-AP11, 2026-03-31)
+
+| Route | Zweck |
+|-------|-------|
+| /admin/einstellungen | 7 Tabs: Vereinsdaten, Sparten CRUD, Mitgliedstypen CRUD, Zahlungsoptionen+SEPA, opt. Felder, Dokumente, Impressum |
+| /api/upload | File Upload (Logo, Satzung, Beitragsordnung). Max 2MB, PNG/JPG/SVG/PDF |
+| /api/uploads/[...path] | File Serving (auth-geschuetzt, nur eigene Tenant-Dateien) |
+
+tRPC Router: `settings` (protectedProcedure). settings_json in tbl_tenant_apps speichert Zahlungsoptionen, SEPA-Toggle, opt. Felder, Dokument-URLs, Impressum.
+
+Upload-Pfad: `/data/uploads/{tenant_id}/` (Docker Volume `./uploads:/app/data/uploads`). DB-Pfad: `/api/uploads/{tenant_id}/{datei}`.
+
 ### Email & Auth-Token (S0-AP06/AP07, 2026-03-30)
 
 | Feature | Details |
@@ -423,4 +435,4 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-31 (S1-AP10: VereinsBuddy Prisma-Schema — 4 neue Models + Migration)*
+*Zuletzt aktualisiert: 2026-03-31 (S1-AP11: Admin-Einstellungen + File Upload/Serving)*

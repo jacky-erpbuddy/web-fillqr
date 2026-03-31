@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
   const filePath = path.join(uploadDir, fileName);
   await writeFile(filePath, buffer);
 
-  // Relativer Pfad fuer DB
-  const relativePath = `/data/uploads/${tenantId}/${fileName}`;
+  // Pfad fuer DB + Frontend (via File-Serving-Route)
+  const relativePath = `/api/uploads/${tenantId}/${fileName}`;
 
   // Bei Logo: logo_path in tbl_tenants aktualisieren
   if (type === "logo") {
