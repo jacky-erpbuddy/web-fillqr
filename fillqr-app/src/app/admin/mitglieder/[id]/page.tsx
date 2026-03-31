@@ -32,6 +32,7 @@ export default async function MemberDetailPage({
       departments: {
         include: { department: { select: { name: true, extraFee: true } } },
       },
+      guardians: true,
       tenant: {
         select: {
           name: true,
@@ -133,6 +134,32 @@ export default async function MemberDetailPage({
           </dl>
         </div>
       </div>
+
+      {/* Erziehungsberechtigte */}
+      {member.guardians.length > 0 && (
+        <div className="mt-6 bg-white rounded-lg border border-amber-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">
+            Erziehungsberechtigte
+          </h2>
+          {member.guardians.map((g) => (
+            <dl key={g.id} className="space-y-2 text-sm">
+              <Row label="Name" value={`${g.firstName} ${g.lastName}`} />
+              <Row label="E-Mail" value={g.email} />
+              <Row label="Telefon" value={g.phone} />
+              <Row
+                label="Anschrift"
+                value={
+                  g.street || g.zip || g.city
+                    ? [g.street, [g.zip, g.city].filter(Boolean).join(" ")]
+                        .filter(Boolean)
+                        .join(", ")
+                    : null
+                }
+              />
+            </dl>
+          ))}
+        </div>
+      )}
 
       {/* Status-Aktionen */}
       <div className="mt-6">

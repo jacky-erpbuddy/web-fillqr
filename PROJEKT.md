@@ -191,6 +191,16 @@ Status ist ein String-Feld (kein Enum). Jeder User ist Admin — kein role-Feld.
 
 Member-Status: eingegangen → in_pruefung → angenommen → abgelehnt → gekuendigt (String, kein Enum).
 
+### Guardians + Annahme-Flow (S1-AP18 + S2-AP19, 2026-04-01)
+
+| Tabelle | Zweck |
+|---------|-------|
+| tbl_guardians | Erziehungsberechtigte (member_id FK, Name, Email, Telefon, opt. Anschrift) |
+
+Bei Annahme: Mitgliedsnummer vergeben (MAX+1, UNIQUE Constraint, Retry bei Race Condition). Willkommensmail async (sendMail, Fehler blockiert nicht). Template: `buildWelcomeEmail()` in `src/lib/email.ts`.
+
+Formular: Abschnitt 3 (Erziehungsberechtigte) erscheint automatisch bei Alter < 18. Server-Validierung: Guardian Pflicht bei Minderjaehrigen.
+
 ### Admin-Einstellungen (S1-AP11, 2026-03-31)
 
 | Route | Zweck |

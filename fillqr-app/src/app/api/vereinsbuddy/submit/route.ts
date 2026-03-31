@@ -9,6 +9,19 @@ import {
   buildMemberNotifyEmail,
 } from "@/lib/email";
 
+const guardianSchema = z.object({
+  firstName: z.string().min(1, "Vorname Erziehungsberechtigte/r ist Pflicht"),
+  lastName: z.string().min(1, "Nachname Erziehungsberechtigte/r ist Pflicht"),
+  email: z.string().email("Ungueltige E-Mail Erziehungsberechtigte/r"),
+  phone: z.string().optional(),
+  street: z.string().optional(),
+  zip: z.string().optional(),
+  city: z.string().optional(),
+  consent: z.literal(true, {
+    message: "Zustimmung Erziehungsberechtigte/r ist Pflicht",
+  }),
+});
+
 const submitSchema = z.object({
   turnstileToken: z.string().min(1),
   firstName: z.string().min(1, "Vorname ist Pflicht"),
@@ -23,6 +36,7 @@ const submitSchema = z.object({
   paymentInterval: z.string().min(1, "Zahlungsintervall ist Pflicht"),
   entryDate: z.string().optional(),
   departmentIds: z.array(z.string()).default([]),
+  guardian: guardianSchema.optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -85,6 +99,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 5b. Minderjaehrigen-Check: Guardian Pflicht wenn Alter < 18
+  const now = new Date();
+  let age = now.getFullYear() - birthdate.getFullYear();
+  const monthDiff = now.getMonth() - birthdate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthdate.getDate())) {
+    age--;
+  }
+  if (age < 18 && !data.guardian) {
+    return NextResponse.json(
+      { error: "Erziehungsberechtigte/r ist bei Minderjaehrigen Pflicht" },
+      { status: 400 },
+    );
+  }
+
   const entryDate = data.entryDate ? new Date(data.entryDate) : null;
 
   // 6. Prisma Transaction: Member + MemberDepartments
@@ -114,6 +142,22 @@ export async function POST(req: NextRequest) {
           memberId: newMember.id,
           departmentId: deptId,
         })),
+      });
+    }
+
+    // Guardian speichern (bei Minderjaehrigen)
+    if (data.guardian) {
+      await tx.guardian.create({
+        data: {
+          memberId: newMember.id,
+          firstName: data.guardian.firstName,
+          lastName: data.guardian.lastName,
+          email: data.guardian.email,
+          phone: data.guardian.phone || null,
+          street: data.guardian.street || null,
+          zip: data.guardian.zip || null,
+          city: data.guardian.city || null,
+        },
       });
     }
 

@@ -84,6 +84,19 @@ export default function MembershipForm({
   const [selectedInterval, setSelectedInterval] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [birthdate, setBirthdate] = useState("");
+
+  const isMinor = useMemo(() => {
+    if (!birthdate) return false;
+    const birth = new Date(birthdate);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const monthDiff = now.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age < 18;
+  }, [birthdate]);
 
   function toggleDept(id: string) {
     setSelectedDepts((prev) =>
@@ -117,7 +130,7 @@ export default function MembershipForm({
 
     const form = new FormData(e.currentTarget);
 
-    const body = {
+    const body: Record<string, unknown> = {
       turnstileToken,
       firstName: form.get("firstName") as string,
       lastName: form.get("lastName") as string,
@@ -132,6 +145,20 @@ export default function MembershipForm({
       entryDate: (form.get("entryDate") as string) || undefined,
       departmentIds: selectedDepts,
     };
+
+    // Guardian-Daten bei Minderjaehrigen
+    if (isMinor) {
+      body.guardian = {
+        firstName: form.get("guardianFirstName") as string,
+        lastName: form.get("guardianLastName") as string,
+        email: form.get("guardianEmail") as string,
+        phone: (form.get("guardianPhone") as string) || undefined,
+        street: (form.get("guardianStreet") as string) || undefined,
+        zip: (form.get("guardianZip") as string) || undefined,
+        city: (form.get("guardianCity") as string) || undefined,
+        consent: !!form.get("guardianConsent"),
+      };
+    }
 
     try {
       const res = await fetch("/api/vereinsbuddy/submit", {
@@ -256,6 +283,8 @@ export default function MembershipForm({
                   id="birthdate"
                   name="birthdate"
                   required
+                  value={birthdate}
+                  onChange={(e) => setBirthdate(e.target.value)}
                   className={inputCls}
                 />
               </div>
@@ -290,6 +319,134 @@ export default function MembershipForm({
               )}
             </div>
           </fieldset>
+
+          {/* ─── Abschnitt 3: Erziehungsberechtigte (Minderjaehrige) ─── */}
+          {isMinor && (
+            <fieldset className="border border-amber-200 bg-amber-50 rounded-md p-4">
+              <legend className="text-lg font-semibold text-gray-900 mb-4">
+                Erziehungsberechtigte/r
+              </legend>
+              <p className="text-sm text-amber-800 mb-4">
+                Da das Mitglied minderjaehrig ist, benoetigen wir die Daten eines/r Erziehungsberechtigten.
+              </p>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="guardianFirstName" className={labelCls}>
+                      Vorname *
+                    </label>
+                    <input
+                      type="text"
+                      id="guardianFirstName"
+                      name="guardianFirstName"
+                      required
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="guardianLastName" className={labelCls}>
+                      Nachname *
+                    </label>
+                    <input
+                      type="text"
+                      id="guardianLastName"
+                      name="guardianLastName"
+                      required
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="guardianEmail" className={labelCls}>
+                    E-Mail *
+                  </label>
+                  <input
+                    type="email"
+                    id="guardianEmail"
+                    name="guardianEmail"
+                    required
+                    className={inputCls}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="guardianPhone" className={labelCls}>
+                    Telefon
+                  </label>
+                  <input
+                    type="tel"
+                    id="guardianPhone"
+                    name="guardianPhone"
+                    className={inputCls}
+                  />
+                </div>
+
+                {/* Abweichende Anschrift */}
+                <details className="border border-gray-200 rounded-md bg-white">
+                  <summary className="px-3 py-2 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50">
+                    Abweichende Anschrift
+                  </summary>
+                  <div className="px-3 py-3 space-y-3 border-t border-gray-200">
+                    <div>
+                      <label htmlFor="guardianStreet" className={labelCls}>
+                        Strasse
+                      </label>
+                      <input
+                        type="text"
+                        id="guardianStreet"
+                        name="guardianStreet"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label htmlFor="guardianZip" className={labelCls}>
+                          PLZ
+                        </label>
+                        <input
+                          type="text"
+                          id="guardianZip"
+                          name="guardianZip"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label htmlFor="guardianCity" className={labelCls}>
+                          Ort
+                        </label>
+                        <input
+                          type="text"
+                          id="guardianCity"
+                          name="guardianCity"
+                          className={inputCls}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </details>
+
+                {/* Zustimmungs-Checkbox */}
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    name="guardianConsent"
+                    required
+                    className="rounded border-gray-300 mt-0.5"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Ich stimme dem Beitritt meines Kindes zu. *
+                  </span>
+                </label>
+
+                {/* Hinweis Beitragszahlung */}
+                <p className="text-xs text-amber-700 bg-amber-100 p-2 rounded">
+                  Hinweis: Die Beitragszahlung erfolgt durch die/den Erziehungsberechtigte/n.
+                </p>
+              </div>
+            </fieldset>
+          )}
 
           {/* ─── Abschnitt 2: Mitgliedschaftsauswahl ─── */}
           <fieldset>

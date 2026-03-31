@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { Prisma } from "@/generated/prisma/client";
 import { router, TRPCError } from "../init";
 import { protectedProcedure } from "../procedures";
+import { sendMail, buildWelcomeEmail } from "@/lib/email";
 
 /** Erlaubte Status-Transitions */
 const TRANSITIONS: Record<string, string[]> = {
@@ -130,6 +132,7 @@ export const membersRouter = router({
             include: { department: { select: { name: true, extraFee: true } } },
           },
           tenant: { select: { name: true } },
+          guardians: true,
         },
       });
 
@@ -178,6 +181,68 @@ export const membersRouter = router({
         ? (member.statusHistory as { status: string; at: string }[])
         : [];
       history.push({ status: input.newStatus, at: new Date().toISOString() });
+
+      // Bei Annahme: Mitgliedsnummer vergeben (mit Retry bei Race Condition)
+      if (input.newStatus === "angenommen") {
+        const tenantId = ctx.user.tenantId;
+        let updated;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            updated = await ctx.prisma.$transaction(async (tx) => {
+              const highest = await tx.member.findFirst({
+                where: { tenantId, memberNo: { not: null } },
+                orderBy: { memberNo: "desc" },
+                select: { memberNo: true },
+              });
+              const nextNo = (highest?.memberNo ?? 0) + 1;
+
+              return tx.member.update({
+                where: { id: input.id },
+                data: {
+                  status: "angenommen",
+                  memberNo: nextNo,
+                  statusHistory: history,
+                },
+                include: {
+                  tenant: { select: { name: true } },
+                  membershipType: { select: { name: true, fee: true } },
+                },
+              });
+            });
+            break; // Erfolg
+          } catch (err) {
+            if (
+              err instanceof Prisma.PrismaClientKnownRequestError &&
+              err.code === "P2002" &&
+              attempt < 2
+            ) {
+              continue; // Retry bei UNIQUE Conflict
+            }
+            throw err;
+          }
+        }
+
+        // Willkommensmail async senden (Fehler blockiert Annahme NICHT)
+        if (updated) {
+          const fee = updated.membershipType?.fee
+            ? `${updated.membershipType.fee} EUR`
+            : "–";
+          const { subject, html } = buildWelcomeEmail({
+            tenantName: updated.tenant.name,
+            firstName: updated.firstName,
+            lastName: updated.lastName,
+            memberNo: updated.memberNo!,
+            fee,
+            interval: updated.paymentInterval ?? "–",
+            paymentMethod: updated.paymentMethod ?? "–",
+          });
+          sendMail(updated.email, subject, html).catch((err) =>
+            console.error("Willkommensmail fehlgeschlagen:", err),
+          );
+        }
+
+        return updated;
+      }
 
       return ctx.prisma.member.update({
         where: { id: input.id },

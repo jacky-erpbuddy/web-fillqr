@@ -1,5 +1,14 @@
 import nodemailer from "nodemailer";
 
+/** HTML-Escape fuer Platzhalter in E-Mail-Templates (XSS-Schutz) */
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT) || 587,
@@ -84,6 +93,38 @@ export function buildMemberNotifyEmail(
           <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Status:</td><td>eingegangen</td></tr>
         </table>
         <p>Bitte pruefe den Antrag im Admin-Bereich.</p>
+      </div>
+    `,
+  };
+}
+
+export function buildWelcomeEmail(params: {
+  tenantName: string;
+  firstName: string;
+  lastName: string;
+  memberNo: number;
+  fee: string;
+  interval: string;
+  paymentMethod: string;
+}): { subject: string; html: string } {
+  const { tenantName, firstName, lastName, memberNo, fee, interval, paymentMethod } = params;
+  return {
+    subject: `Willkommen im ${tenantName}!`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Willkommen im ${esc(tenantName)}!</h2>
+        <p>Hallo ${esc(firstName)} ${esc(lastName)},</p>
+        <p>dein Mitgliedsantrag wurde angenommen. Hier deine Daten im Ueberblick:</p>
+        <table style="border-collapse: collapse; margin: 16px 0;">
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Mitgliedsnummer:</td><td><strong>${memberNo}</strong></td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Beitrag:</td><td>${esc(fee)}</td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Zahlungsintervall:</td><td>${esc(interval)}</td></tr>
+          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Zahlungsweise:</td><td>${esc(paymentMethod)}</td></tr>
+        </table>
+        <p>Bei Fragen wende dich bitte an deinen Verein.</p>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">
+          Diese E-Mail wurde automatisch versendet. Bitte antworte nicht auf diese Nachricht.
+        </p>
       </div>
     `,
   };

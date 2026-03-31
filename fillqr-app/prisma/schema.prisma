@@ -136,10 +136,29 @@ model Member {
   tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   membershipType MembershipType?     @relation(fields: [membershipTypeId], references: [id], onDelete: SetNull)
   departments    MemberDepartment[]
+  guardians      Guardian[]
 
   @@unique([tenantId, memberNo])
   @@index([tenantId, status])
   @@map("tbl_members")
+}
+
+model Guardian {
+  id        String   @id @default(cuid())
+  memberId  String   @map("member_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  email     String
+  phone     String?
+  street    String?
+  zip       String?
+  city      String?
+  relation  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("tbl_guardians")
 }
 
 model MemberDepartment {
