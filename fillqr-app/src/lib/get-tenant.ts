@@ -11,10 +11,16 @@ type TenantInfo = {
   appKey: string;
 };
 
-export async function getTenant(): Promise<TenantInfo | null> {
+export type TenantResult =
+  | { status: "ok"; tenant: TenantInfo["tenant"]; appKey: string }
+  | { status: "not_found" }
+  | { status: "inactive" };
+
+export async function getTenant(): Promise<TenantResult | null> {
   const headerList = await headers();
   const slug = headerList.get("x-tenant-slug");
 
+  // Kein Slug = reservierte Subdomain oder direkte Domain → null (kein Fehler)
   if (!slug) {
     return null;
   }
@@ -24,15 +30,16 @@ export async function getTenant(): Promise<TenantInfo | null> {
     include: { tenant: true, app: true },
   });
 
-  if (!tenantApp || !tenantApp.isEnabled) {
-    return null;
+  if (!tenantApp) {
+    return { status: "not_found" };
   }
 
-  if (tenantApp.tenant.status !== "active" && tenantApp.tenant.status !== "trial") {
-    return null;
+  if (!tenantApp.isEnabled || (tenantApp.tenant.status !== "active" && tenantApp.tenant.status !== "trial")) {
+    return { status: "inactive" };
   }
 
   return {
+    status: "ok",
     tenant: {
       id: tenantApp.tenant.id,
       name: tenantApp.tenant.name,
