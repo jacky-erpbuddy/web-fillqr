@@ -63,7 +63,8 @@ export function middleware(request: NextRequest) {
   }
 
   // --- Kunden-App: Bestehende Logik ---
-  const response = NextResponse.next();
+  // Request-Headers klonen um x-tenant-slug fuer Server Components sichtbar zu machen
+  const requestHeaders = new Headers(request.headers);
 
   try {
     let slug = extractSubdomain(host);
@@ -74,7 +75,7 @@ export function middleware(request: NextRequest) {
     }
 
     if (slug && !isReserved(slug)) {
-      response.headers.set("x-tenant-slug", slug);
+      requestHeaders.set("x-tenant-slug", slug);
     }
   } catch (error) {
     console.error("Tenant middleware error:", error);
@@ -88,7 +89,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  return response;
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

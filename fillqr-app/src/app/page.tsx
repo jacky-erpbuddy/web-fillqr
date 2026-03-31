@@ -1,5 +1,8 @@
 import { getTenant } from "@/lib/get-tenant";
+import { prisma } from "@/lib/prisma";
+import { parseSettings } from "@/lib/settings-schema";
 import ErrorLayout from "@/components/error-layout";
+import MembershipForm from "@/app/vereinsbuddy/MembershipForm";
 
 export default async function Home() {
   const result = await getTenant();
@@ -32,11 +35,57 @@ export default async function Home() {
     );
   }
 
-  // status === "ok" — Tenant ist aktiv
+  // status === "ok" — Tenant ist aktiv, Switch auf appKey
+  const { tenant, appKey } = result;
+
+  if (appKey === "vereinsbuddy") {
+    const [membershipTypes, departments, tenantApp] = await Promise.all([
+      prisma.membershipType.findMany({
+        where: { tenantId: tenant.id, isActive: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.department.findMany({
+        where: { tenantId: tenant.id, isActive: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.tenantApp.findFirst({
+        where: { tenantId: tenant.id, app: { key: "vereinsbuddy" } },
+        select: { settingsJson: true },
+      }),
+    ]);
+
+    const settings = parseSettings(tenantApp?.settingsJson);
+
+    return (
+      <MembershipForm
+        tenantName={tenant.name}
+        membershipTypes={membershipTypes.map((t) => ({
+          id: t.id,
+          name: t.name,
+          fee: Number(t.fee),
+        }))}
+        departments={departments.map((d) => ({
+          id: d.id,
+          name: d.name,
+          extraFee: Number(d.extraFee),
+        }))}
+        settings={{
+          zahlungsintervalle: settings.zahlungsintervalle,
+          telefonSichtbar: settings.optionale_felder.telefon,
+        }}
+      />
+    );
+  }
+
+  // trainerfeedback, messebuddy — Coming soon
   return (
-    <main>
-      <h1>fillQR — {result.tenant.name}</h1>
-      <p>Willkommen bei fillQR.</p>
+    <main className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          {tenant.name}
+        </h1>
+        <p className="text-gray-500">Coming soon</p>
+      </div>
     </main>
   );
 }
