@@ -148,7 +148,7 @@ export const membersRouter = router({
     .input(
       z.object({
         id: z.string(),
-        newStatus: z.string(),
+        newStatus: z.enum(["eingegangen", "in_pruefung", "angenommen", "abgelehnt", "gekuendigt"]),
       }),
     )
     .mutation(async ({ ctx, input }) => {

@@ -9,9 +9,15 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const status = searchParams.get("status") || undefined;
   const search = searchParams.get("search") || undefined;
+  const departmentId = searchParams.get("departmentId") || undefined;
+  const membershipTypeId = searchParams.get("membershipTypeId") || undefined;
 
   const where: Record<string, unknown> = { tenantId };
   if (status) where.status = status;
+  if (membershipTypeId) where.membershipTypeId = membershipTypeId;
+  if (departmentId) {
+    where.departments = { some: { departmentId } };
+  }
   if (search) {
     where.OR = [
       { firstName: { contains: search, mode: "insensitive" } },

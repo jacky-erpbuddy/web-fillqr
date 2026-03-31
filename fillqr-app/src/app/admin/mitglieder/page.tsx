@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+
+// ─── Types ───
 
 type MemberRow = {
   id: string;
@@ -9,9 +11,14 @@ type MemberRow = {
   lastName: string;
   status: string;
   createdAt: string;
+  paymentInterval: string | null;
   membershipType: { name: string; fee: string } | null;
   departments: { department: { name: string } }[];
 };
+
+type FilterOption = { id: string; name: string };
+
+// ─── Constants ───
 
 const STATUS_COLORS: Record<string, string> = {
   eingegangen: "bg-blue-100 text-blue-800",
@@ -33,6 +40,13 @@ const STATUS_OPTIONS = [
 const selectCls =
   "px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500";
 
+const eur = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+});
+
+// ─── Helpers ───
+
 async function trpcQuery(procedure: string, input: Record<string, unknown>) {
   const encoded = encodeURIComponent(JSON.stringify({ json: input }));
   const res = await fetch(`/api/trpc/${procedure}?input=${encoded}`);
@@ -40,21 +54,65 @@ async function trpcQuery(procedure: string, input: Record<string, unknown>) {
   return data.result?.data?.json ?? data.result?.data;
 }
 
+function useDebounce(value: string, delay: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
+// ─── Component ───
+
 export default function MitgliederPage() {
   const [items, setItems] = useState<MemberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
-  const [search, setSearch] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [membershipTypeId, setMembershipTypeId] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const search = useDebounce(searchInput, 300);
   const [sortBy, setSortBy] = useState<"date" | "name">("date");
   const [cursor, setCursor] = useState<string | undefined>();
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [prevCursors, setPrevCursors] = useState<string[]>([]);
+
+  // Filter-Optionen laden
+  const [departments, setDepartments] = useState<FilterOption[]>([]);
+  const [membershipTypes, setMembershipTypes] = useState<FilterOption[]>([]);
+  const optionsLoaded = useRef(false);
+
+  useEffect(() => {
+    if (optionsLoaded.current) return;
+    optionsLoaded.current = true;
+    trpcQuery("settings.getAll", {}).then((data) => {
+      if (data?.departments) {
+        setDepartments(
+          data.departments.map((d: { id: string; name: string }) => ({
+            id: d.id,
+            name: d.name,
+          })),
+        );
+      }
+      if (data?.membershipTypes) {
+        setMembershipTypes(
+          data.membershipTypes.map((t: { id: string; name: string }) => ({
+            id: t.id,
+            name: t.name,
+          })),
+        );
+      }
+    });
+  }, []);
 
   const fetchData = useCallback(
     async (cursorVal?: string) => {
       setLoading(true);
       const input: Record<string, unknown> = { sortBy, limit: 20 };
       if (status) input.status = status;
+      if (departmentId) input.departmentId = departmentId;
+      if (membershipTypeId) input.membershipTypeId = membershipTypeId;
       if (search) input.search = search;
       if (cursorVal) input.cursor = cursorVal;
 
@@ -63,7 +121,7 @@ export default function MitgliederPage() {
       setNextCursor(result.nextCursor ?? null);
       setLoading(false);
     },
-    [status, search, sortBy],
+    [status, departmentId, membershipTypeId, search, sortBy],
   );
 
   useEffect(() => {
@@ -87,12 +145,20 @@ export default function MitgliederPage() {
     fetchData(last || undefined);
   }
 
+  // Export-URL mit allen aktiven Filtern
+  const exportParams = new URLSearchParams();
+  if (status) exportParams.set("status", status);
+  if (departmentId) exportParams.set("departmentId", departmentId);
+  if (membershipTypeId) exportParams.set("membershipTypeId", membershipTypeId);
+  if (search) exportParams.set("search", search);
+  const exportUrl = `/api/admin/members/export?${exportParams.toString()}`;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Mitglieder</h1>
         <a
-          href={`/api/admin/members/export?status=${status}&search=${search}`}
+          href={exportUrl}
           className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50"
         >
           Exportieren (CSV)
@@ -113,11 +179,41 @@ export default function MitgliederPage() {
           ))}
         </select>
 
+        {departments.length > 0 && (
+          <select
+            value={departmentId}
+            onChange={(e) => setDepartmentId(e.target.value)}
+            className={selectCls}
+          >
+            <option value="">Alle Sparten</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {membershipTypes.length > 0 && (
+          <select
+            value={membershipTypeId}
+            onChange={(e) => setMembershipTypeId(e.target.value)}
+            className={selectCls}
+          >
+            <option value="">Alle Mitgliedstypen</option>
+            {membershipTypes.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         <input
           type="text"
           placeholder="Name oder E-Mail suchen..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className={`${selectCls} flex-1 min-w-[200px]`}
         />
 
@@ -156,6 +252,9 @@ export default function MitgliederPage() {
                   Mitgliedstyp
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600 hidden lg:table-cell">
+                  Beitrag
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600 hidden lg:table-cell">
                   Datum
                 </th>
               </tr>
@@ -184,6 +283,11 @@ export default function MitgliederPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
                     {m.membershipType?.name ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
+                    {m.membershipType
+                      ? eur.format(Number(m.membershipType.fee))
+                      : "—"}
                   </td>
                   <td className="px-4 py-3 text-gray-400 hidden lg:table-cell">
                     {new Date(m.createdAt).toLocaleDateString("de-DE")}

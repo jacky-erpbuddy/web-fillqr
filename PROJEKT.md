@@ -223,6 +223,18 @@ Middleware-Fix: x-tenant-slug wird als Request-Header gesetzt (NextResponse.next
 E-Mail: Eingangsbestaetigung an Antragsteller + Notification an Admin (tbl_tenants.email).
 Caddy: `/api/vereinsbuddy/*` und `/vereinsbuddy/success*` als Public Paths in Wildcard-Block.
 
+### Admin Dashboard + Mitglieder (S1-AP16+AP17, 2026-03-31)
+
+| Route | Zweck |
+|-------|-------|
+| /admin/dashboard | Stats-Karten (eingegangen/angenommen/pruefung) + letzte 5 Eingaenge |
+| /admin/mitglieder | Mitgliederliste mit Filter (Status/Sparte/Typ), Suche, Pagination, CSV-Export |
+| /admin/mitglieder/[id] | Detailansicht mit Status-Wechsel (Transition-Map), History-Timeline, QR-Link |
+| /api/admin/members/export | CSV-Export (BOM, gefiltert) |
+
+tRPC Router: `members` (stats, recent, list, getById, updateStatus). Schema: `statusHistory Json?` in Member.
+Status-Flow: eingegangen → in_pruefung/angenommen/abgelehnt → gekuendigt (serverseitig enforced).
+
 ### Email & Auth-Token (S0-AP06/AP07, 2026-03-30)
 
 | Feature | Details |
@@ -455,4 +467,4 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-31 (S1-AP15: Submit-Flow + Caddy Public Paths + Tenant-Isolation Fix)*
+*Zuletzt aktualisiert: 2026-03-31 (S1-AP16+17: Dashboard, Mitgliederliste, Detailansicht, Status-Workflow)*
