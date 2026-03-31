@@ -6,7 +6,7 @@ export default function GlobalError() {
   return (
     <ErrorLayout
       title="Ein Fehler ist aufgetreten"
-      message="Bitte versuche es spaeter erneut. Falls das Problem bestehen bleibt, kontaktiere den Support."
+      message="Bitte versuche es später erneut. Falls das Problem bestehen bleibt, kontaktiere den Support."
     />
   );
 }

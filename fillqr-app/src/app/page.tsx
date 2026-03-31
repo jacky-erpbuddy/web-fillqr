@@ -17,8 +17,8 @@ export default async function Home() {
   if (result.status === "not_found") {
     return (
       <ErrorLayout
-        title="Diese Seite ist nicht verfuegbar"
-        message="Die aufgerufene Adresse ist nicht registriert. Pruefe die URL oder besuche unsere Startseite."
+        title="Diese Seite ist nicht verfügbar"
+        message="Die aufgerufene Adresse ist nicht registriert. Prüfe die URL oder besuche unsere Startseite."
       />
     );
   }
@@ -27,7 +27,7 @@ export default async function Home() {
     return (
       <ErrorLayout
         title="Diese Seite ist derzeit nicht aktiv"
-        message="Der Zugang zu dieser Seite wurde voruebergehend deaktiviert. Bei Fragen wende dich an den Betreiber."
+        message="Der Zugang zu dieser Seite wurde vorübergehend deaktiviert. Bei Fragen wende dich an den Betreiber."
       />
     );
   }
