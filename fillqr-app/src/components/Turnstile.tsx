@@ -33,7 +33,7 @@ export default function Turnstile({ onSuccess, onError }: TurnstileProps) {
       sitekey: SITE_KEY,
       callback: onSuccess,
       "error-callback": onError,
-      appearance: "interaction-only",
+      appearance: "always",
     });
   }, [onSuccess, onError]);
 
