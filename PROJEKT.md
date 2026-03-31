@@ -203,6 +203,16 @@ tRPC Router: `settings` (protectedProcedure). settings_json in tbl_tenant_apps s
 
 Upload-Pfad: `/data/uploads/{tenant_id}/` (Docker Volume `./uploads:/app/data/uploads`). DB-Pfad: `/api/uploads/{tenant_id}/{datei}`.
 
+### Public Formular (S1-AP12, 2026-03-31)
+
+| Route | Zweck |
+|-------|-------|
+| / (Subdomain-Root) | appKey-Switch: vereinsbuddy → MembershipForm, Rest → "Coming soon" |
+| /vereinsbuddy/MembershipForm.tsx | Client Component: 2 Abschnitte (Persoenliche Daten + Mitgliedschaftsauswahl) |
+
+Dynamische Felder aus AP-11 Einstellungen. Turnstile Widget (appearance: "always"). Submit-Logik kommt in AP-15.
+Middleware-Fix: x-tenant-slug wird als Request-Header gesetzt (NextResponse.next({ request: { headers } })).
+
 ### Email & Auth-Token (S0-AP06/AP07, 2026-03-30)
 
 | Feature | Details |
@@ -435,4 +445,4 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-31 (S1-AP11: Admin-Einstellungen + File Upload/Serving)*
+*Zuletzt aktualisiert: 2026-03-31 (S1-AP12: Public Formular Abschnitt 1+2 + Middleware-Fix + Turnstile)*
