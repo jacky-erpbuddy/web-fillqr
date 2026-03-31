@@ -19,9 +19,11 @@ export default async function SuccessPage({
     interval: string | null;
   } | null = null;
 
-  if (params.id) {
-    const member = await prisma.member.findUnique({
-      where: { id: params.id },
+  const tenantId = result?.status === "ok" ? result.tenant.id : null;
+
+  if (params.id && tenantId) {
+    const member = await prisma.member.findFirst({
+      where: { id: params.id, tenantId },
       include: {
         membershipType: { select: { name: true } },
         departments: {

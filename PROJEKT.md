@@ -210,8 +210,18 @@ Upload-Pfad: `/data/uploads/{tenant_id}/` (Docker Volume `./uploads:/app/data/up
 | / (Subdomain-Root) | appKey-Switch: vereinsbuddy → MembershipForm, Rest → "Coming soon" |
 | /vereinsbuddy/MembershipForm.tsx | Client Component: 2 Abschnitte (Persoenliche Daten + Mitgliedschaftsauswahl) |
 
-Dynamische Felder aus AP-11 Einstellungen. Turnstile Widget (appearance: "always"). Submit-Logik kommt in AP-15.
+Dynamische Felder aus AP-11 Einstellungen. Turnstile Widget (appearance: "always").
 Middleware-Fix: x-tenant-slug wird als Request-Header gesetzt (NextResponse.next({ request: { headers } })).
+
+### Submit + Bestaetigungs-Flow (S1-AP15, 2026-03-31)
+
+| Route | Zweck |
+|-------|-------|
+| POST /api/vereinsbuddy/submit | Antrag absenden: Turnstile + Zod + Prisma Transaction (Member + Departments) |
+| /vereinsbuddy/success?id= | Bestaetigungsseite mit Zusammenfassung (Tenant-isoliert) |
+
+E-Mail: Eingangsbestaetigung an Antragsteller + Notification an Admin (tbl_tenants.email).
+Caddy: `/api/vereinsbuddy/*` und `/vereinsbuddy/success*` als Public Paths in Wildcard-Block.
 
 ### Email & Auth-Token (S0-AP06/AP07, 2026-03-30)
 
@@ -445,4 +455,4 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 ---
 
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-31 (S1-AP12: Public Formular Abschnitt 1+2 + Middleware-Fix + Turnstile)*
+*Zuletzt aktualisiert: 2026-03-31 (S1-AP15: Submit-Flow + Caddy Public Paths + Tenant-Isolation Fix)*
