@@ -136,6 +136,8 @@ model Member {
   volunteer        Boolean?
   donation         Decimal?
   referredBy       String?   @map("referred_by")
+  familyGroupId    String?   @map("family_group_id")
+  familyHead       Boolean?  @map("family_head")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt      @map("updated_at")
 

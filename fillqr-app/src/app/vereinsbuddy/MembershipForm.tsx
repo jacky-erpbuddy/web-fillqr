@@ -34,6 +34,8 @@ type FormSettings = {
   ehrenamt: boolean;
   spende: boolean;
   mitgliedWirbt: boolean;
+  fotoUpload: "aus" | "optional" | "pflicht";
+  familienmitgliedschaft: boolean;
 };
 
 type Props = {
@@ -95,6 +97,63 @@ export default function MembershipForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [birthdate, setBirthdate] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
+  const [photoPath, setPhotoPath] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  type FamilyMember = {
+    firstName: string;
+    lastName: string;
+    birthdate: string;
+    departmentIds: string[];
+  };
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+
+  async function handlePhotoUpload(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError("Datei zu gross (max. 5 MB)");
+      return;
+    }
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      setPhotoError("Nur JPG und PNG erlaubt");
+      return;
+    }
+    setPhotoUploading(true);
+    setPhotoError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("turnstileToken", turnstileToken ?? "");
+    try {
+      const res = await fetch("/api/vereinsbuddy/upload-photo", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPhotoError(data.error ?? "Upload fehlgeschlagen");
+        return;
+      }
+      setPhotoPath(data.path);
+      setPhotoPreview(URL.createObjectURL(file));
+    } catch {
+      setPhotoError("Netzwerkfehler beim Upload");
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  function addFamilyMember() {
+    setFamilyMembers((prev) => [...prev, { firstName: "", lastName: "", birthdate: "", departmentIds: [] }]);
+  }
+
+  function removeFamilyMember(index: number) {
+    setFamilyMembers((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateFamilyMember(index: number, field: keyof FamilyMember, value: string | string[]) {
+    setFamilyMembers((prev) => prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
+  }
   const [ibanError, setIbanError] = useState<string | null>(null);
 
   // Verfügbare Zahlungsarten aus Settings
@@ -175,6 +234,14 @@ export default function MembershipForm({
       entryDate: (form.get("entryDate") as string) || undefined,
       departmentIds: selectedDepts,
     };
+
+    // Foto
+    if (photoPath) body.photoPath = photoPath;
+
+    // Familienmitglieder
+    if (familyMembers.length > 0) {
+      body.familyMembers = familyMembers;
+    }
 
     // Zahlungsart
     body.paymentMethod = selectedPaymentMethod;
@@ -380,6 +447,30 @@ export default function MembershipForm({
               )}
             </div>
           </fieldset>
+
+          {/* ─── AP-22: Foto-Upload ─── */}
+          {settings.fotoUpload !== "aus" && (
+            <div>
+              <label className={labelCls}>
+                Foto {settings.fotoUpload === "pflicht" ? "*" : "(optional)"}
+              </label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png;capture=camera"
+                onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])}
+                disabled={photoUploading}
+                className="text-sm text-gray-500"
+              />
+              {photoUploading && <p className="text-sm text-gray-500 mt-1">Wird hochgeladen...</p>}
+              {photoError && <p className="text-sm text-red-600 mt-1">{photoError}</p>}
+              {photoPreview && (
+                <img src={photoPreview} alt="Vorschau" className="mt-2 h-32 w-32 object-cover rounded-md border" />
+              )}
+              {settings.fotoUpload === "pflicht" && !photoPath && (
+                <input type="hidden" name="photoRequired" required />
+              )}
+            </div>
+          )}
 
           {/* ─── Abschnitt 3: Erziehungsberechtigte (Minderjaehrige) ─── */}
           {isMinor && (
@@ -621,6 +712,96 @@ export default function MembershipForm({
               </div>
             </div>
           </fieldset>
+
+          {/* ─── AP-23: Familienmitglieder ─── */}
+          {settings.familienmitgliedschaft && (
+            <fieldset>
+              <legend className="text-lg font-semibold text-gray-900 mb-4">
+                Familienmitglieder
+              </legend>
+              <p className="text-sm text-gray-500 mb-4">
+                Fuege weitere Familienmitglieder hinzu. Alle teilen eine gemeinsame Mitgliedschaft.
+              </p>
+
+              {familyMembers.map((fm, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-md p-4 mb-4 bg-gray-50">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-sm font-medium text-gray-700">Familienmitglied {idx + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFamilyMember(idx)}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Vorname *</label>
+                      <input
+                        type="text"
+                        required
+                        value={fm.firstName}
+                        onChange={(e) => updateFamilyMember(idx, "firstName", e.target.value)}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Nachname *</label>
+                      <input
+                        type="text"
+                        required
+                        value={fm.lastName}
+                        onChange={(e) => updateFamilyMember(idx, "lastName", e.target.value)}
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className={labelCls}>Geburtsdatum *</label>
+                    <input
+                      type="date"
+                      required
+                      value={fm.birthdate}
+                      onChange={(e) => updateFamilyMember(idx, "birthdate", e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  {departments.length > 0 && (
+                    <div className="mt-3">
+                      <span className={labelCls}>Sparte</span>
+                      <div className="mt-1 space-y-1">
+                        {departments.map((d) => (
+                          <label key={d.id} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={fm.departmentIds.includes(d.id)}
+                              onChange={() => {
+                                const newIds = fm.departmentIds.includes(d.id)
+                                  ? fm.departmentIds.filter((id) => id !== d.id)
+                                  : [...fm.departmentIds, d.id];
+                                updateFamilyMember(idx, "departmentIds", newIds);
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm">{d.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addFamilyMember}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                + Weiteres Familienmitglied hinzufuegen
+              </button>
+            </fieldset>
+          )}
 
           {/* ─── AP-13: Live-Beitragsberechnung ─── */}
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4">

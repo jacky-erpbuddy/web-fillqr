@@ -706,6 +706,29 @@ function OptionaleFelderTab({ settings }: { settings: VereinsBuddySettings }) {
           <span className="text-sm">Mitglied wirbt Mitglied — Werbername fuer Praemien</span>
         </label>
       </div>
+
+      <h3 className="text-sm font-medium text-gray-700 mt-6 mb-3">Foto-Upload</h3>
+      <select
+        value={s.foto_upload}
+        onChange={(e) => setS((p) => ({ ...p, foto_upload: e.target.value as "aus" | "optional" | "pflicht" }))}
+        className={inputCls + " w-48"}
+      >
+        <option value="aus">Aus</option>
+        <option value="optional">Optional</option>
+        <option value="pflicht">Pflicht</option>
+      </select>
+
+      <h3 className="text-sm font-medium text-gray-700 mt-6 mb-3">Familienmitgliedschaft</h3>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={s.familienmitgliedschaft}
+          onChange={() => setS((p) => ({ ...p, familienmitgliedschaft: !p.familienmitgliedschaft }))}
+          className="rounded border-gray-300"
+        />
+        <span className="text-sm">Familienmitgliedschaft anbieten — mehrere Personen in einem Antrag</span>
+      </label>
+
       <button onClick={handleSave} disabled={saving} className={btnPrimary}>
         {saving ? "Speichert..." : "Speichern"}
       </button>

@@ -73,6 +73,13 @@ export default async function MemberDetailPage({
         </span>
       </div>
 
+      {/* Foto */}
+      {member.photoPath && (
+        <div className="mb-6">
+          <img src={member.photoPath} alt={`${member.firstName} ${member.lastName}`} className="h-48 w-48 object-cover rounded-lg border" />
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Persoenliche Daten */}
         <div className="bg-white rounded-lg border border-gray-200 p-5">
@@ -169,6 +176,11 @@ export default async function MemberDetailPage({
         </div>
       )}
 
+      {/* Familienmitglieder */}
+      {member.familyGroupId && (
+        <FamilySection memberId={member.id} familyGroupId={member.familyGroupId} tenantId={user.tenantId} />
+      )}
+
       {/* Erziehungsberechtigte */}
       {member.guardians.length > 0 && (
         <div className="mt-6 bg-white rounded-lg border border-amber-200 p-5">
@@ -252,6 +264,45 @@ function Row({
     <div className="flex justify-between">
       <dt className="text-gray-500">{label}</dt>
       <dd className="text-gray-900 text-right">{value ?? "—"}</dd>
+    </div>
+  );
+}
+
+async function FamilySection({
+  memberId,
+  familyGroupId,
+  tenantId,
+}: {
+  memberId: string;
+  familyGroupId: string;
+  tenantId: string;
+}) {
+  const familyMembers = await prisma.member.findMany({
+    where: { familyGroupId, tenantId, id: { not: memberId } },
+    select: { id: true, firstName: true, lastName: true, status: true, familyHead: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (familyMembers.length === 0) return null;
+
+  return (
+    <div className="mt-6 bg-white rounded-lg border border-purple-200 p-5">
+      <h2 className="text-sm font-semibold text-gray-700 mb-4">
+        Familienmitglieder
+      </h2>
+      <ul className="space-y-2">
+        {familyMembers.map((fm) => (
+          <li key={fm.id} className="flex items-center justify-between text-sm">
+            <Link href={`/admin/mitglieder/${fm.id}`} className="text-blue-600 hover:text-blue-800">
+              {fm.firstName} {fm.lastName}
+              {fm.familyHead && <span className="ml-1 text-xs text-gray-400">(Hauptmitglied)</span>}
+            </Link>
+            <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[fm.status] ?? "bg-gray-100"}`}>
+              {fm.status}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

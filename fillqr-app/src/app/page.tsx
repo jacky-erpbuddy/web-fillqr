@@ -93,6 +93,8 @@ export default async function Home() {
           ehrenamt: settings.optionale_felder.ehrenamt,
           spende: settings.optionale_felder.spende,
           mitgliedWirbt: settings.optionale_felder.mitglied_wirbt,
+          fotoUpload: settings.foto_upload,
+          familienmitgliedschaft: settings.familienmitgliedschaft,
         }}
       />
     );

@@ -157,7 +157,7 @@ export const membersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const member = await ctx.prisma.member.findFirst({
         where: { id: input.id, tenantId: ctx.user.tenantId },
-        select: { id: true, status: true, statusHistory: true },
+        select: { id: true, status: true, statusHistory: true, familyGroupId: true, familyHead: true },
       });
 
       if (!member) {
@@ -239,6 +239,67 @@ export const membersRouter = router({
           sendMail(updated.email, subject, html).catch((err) =>
             console.error("Willkommensmail fehlgeschlagen:", err),
           );
+        }
+
+        // Gruppen-Annahme: Wenn Head angenommen → alle Familienmitglieder annehmen
+        if (member.familyGroupId && member.familyHead) {
+          const familyMembers = await ctx.prisma.member.findMany({
+            where: {
+              familyGroupId: member.familyGroupId,
+              id: { not: input.id },
+              status: { not: "angenommen" },
+            },
+          });
+
+          for (const fm of familyMembers) {
+            // Eigene memberNo + Status für jedes Familienmitglied
+            for (let fmAttempt = 0; fmAttempt < 3; fmAttempt++) {
+              try {
+                const fmUpdated = await ctx.prisma.$transaction(async (tx) => {
+                  const highest = await tx.member.findFirst({
+                    where: { tenantId, memberNo: { not: null } },
+                    orderBy: { memberNo: "desc" },
+                    select: { memberNo: true },
+                  });
+                  const nextNo = (highest?.memberNo ?? 0) + 1;
+                  const fmHistory = Array.isArray(fm.statusHistory)
+                    ? (fm.statusHistory as { status: string; at: string }[])
+                    : [];
+                  fmHistory.push({ status: "angenommen", at: new Date().toISOString() });
+
+                  return tx.member.update({
+                    where: { id: fm.id },
+                    data: { status: "angenommen", memberNo: nextNo, statusHistory: fmHistory },
+                    include: { tenant: { select: { name: true } }, membershipType: { select: { name: true, fee: true } } },
+                  });
+                });
+
+                // Willkommensmail fuer Familienmitglied
+                if (fmUpdated) {
+                  const fmFee = fmUpdated.membershipType?.fee ? `${fmUpdated.membershipType.fee} EUR` : "–";
+                  const { subject: fmSubject, html: fmHtml } = buildWelcomeEmail({
+                    tenantName: fmUpdated.tenant.name,
+                    firstName: fmUpdated.firstName,
+                    lastName: fmUpdated.lastName,
+                    memberNo: fmUpdated.memberNo!,
+                    fee: fmFee,
+                    interval: fmUpdated.paymentInterval ?? "–",
+                    paymentMethod: fmUpdated.paymentMethod ?? "–",
+                  });
+                  sendMail(fmUpdated.email, fmSubject, fmHtml).catch((err) =>
+                    console.error("Willkommensmail (Familie) fehlgeschlagen:", err),
+                  );
+                }
+                break;
+              } catch (err) {
+                if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002" && fmAttempt < 2) {
+                  continue;
+                }
+                console.error("Familien-Annahme fehlgeschlagen:", err);
+                break;
+              }
+            }
+          }
         }
 
         return updated;

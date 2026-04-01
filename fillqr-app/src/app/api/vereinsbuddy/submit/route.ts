@@ -71,6 +71,13 @@ const submitSchema = z.object({
   volunteer: z.boolean().optional(),
   donation: z.number().min(0).optional(),
   referredBy: z.string().optional(),
+  photoPath: z.string().optional(),
+  familyMembers: z.array(z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    birthdate: z.string().min(1),
+    departmentIds: z.array(z.string()).default([]),
+  })).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -202,9 +209,50 @@ export async function POST(req: NextRequest) {
         volunteer: data.volunteer ?? null,
         donation: data.donation ?? null,
         referredBy: data.referredBy || null,
+        photoPath: data.photoPath || null,
+        familyGroupId: data.familyMembers?.length ? undefined : null, // wird unten gesetzt wenn Familie
+        familyHead: data.familyMembers?.length ? true : null,
         status: "eingegangen",
       },
     });
+
+    // Familien-Logik: familyGroupId setzen + weitere Members anlegen
+    if (data.familyMembers && data.familyMembers.length > 0) {
+      const groupId = newMember.id; // Head-ID als GroupID
+      await tx.member.update({
+        where: { id: newMember.id },
+        data: { familyGroupId: groupId },
+      });
+
+      for (const fm of data.familyMembers) {
+        const fmBirthdate = new Date(fm.birthdate);
+        const fmMember = await tx.member.create({
+          data: {
+            tenantId: tenant.id,
+            firstName: fm.firstName,
+            lastName: fm.lastName,
+            email: data.email, // Familie teilt E-Mail des Heads
+            birthdate: fmBirthdate,
+            membershipTypeId: data.membershipTypeId,
+            paymentInterval: data.paymentInterval,
+            paymentMethod: data.paymentMethod || null,
+            familyGroupId: groupId,
+            familyHead: false,
+            status: "eingegangen",
+          },
+        });
+
+        // Sparten fuer Familienmitglied
+        if (fm.departmentIds.length > 0) {
+          await tx.memberDepartment.createMany({
+            data: fm.departmentIds.map((deptId) => ({
+              memberId: fmMember.id,
+              departmentId: deptId,
+            })),
+          });
+        }
+      }
+    }
 
     // Sparten zuordnen
     if (data.departmentIds.length > 0) {

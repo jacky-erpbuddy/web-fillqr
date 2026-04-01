@@ -34,6 +34,8 @@ export const vereinsbuddySettingsSchema = z.object({
       mitglied_wirbt: z.boolean().default(false),
     })
     .default({ telefon: false, notfallkontakt: false, fotoerlaubnis: false, newsletter: false, ehrenamt: false, spende: false, mitglied_wirbt: false }),
+  foto_upload: z.enum(["aus", "optional", "pflicht"]).default("aus"),
+  familienmitgliedschaft: z.boolean().default(false),
   satzung_url: z.string().default(""),
   satzung_typ: z.enum(["url", "upload"]).default("url"),
   beitragsordnung_url: z.string().default(""),
@@ -52,6 +54,8 @@ export const DEFAULT_SETTINGS: VereinsBuddySettings = {
   sepa_pre_notification: 14,
   zahlungsarten: { ueberweisung: true, bar: false },
   optionale_felder: { telefon: false, notfallkontakt: false, fotoerlaubnis: false, newsletter: false, ehrenamt: false, spende: false, mitglied_wirbt: false },
+  foto_upload: "aus",
+  familienmitgliedschaft: false,
   satzung_url: "",
   satzung_typ: "url",
   beitragsordnung_url: "",

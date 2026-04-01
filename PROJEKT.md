@@ -213,6 +213,16 @@ Settings-Erweiterung: sepa_glaeubiger_id, sepa_pre_notification (Default 14), za
 
 Formular: Abschnitt 4 (Zahlungsart Radio), Abschnitt 5 (SEPA conditional: Kontoinhaber, IBAN mit Client+Server-Validierung, BIC, Mandatstext, Consent), Abschnitt 6 (Zusatzoptionen settings-gesteuert). IBAN: nur DE-Format, Modulo-97 Pruefziffer server-seitig. Mandatsreferenz: FILLQR-{tenantId kurz}-{laufende_nr}, UNIQUE + Retry.
 
+### Foto-Upload + Familienmitgliedschaft (S2-AP22 + S2-AP23, 2026-04-01)
+
+Member-Felder: +familyGroupId (String?), +familyHead (Boolean?). photoPath existiert seit S1.
+
+Settings: foto_upload (aus/optional/pflicht), familienmitgliedschaft (boolean).
+
+Foto-Upload: Public Route `/api/vereinsbuddy/upload-photo` (Turnstile, 5MB, JPG/PNG). Storage: /data/uploads/{tenantId}/members/temp_{uuid}.{ext}. Admin: Grossfoto in Detail.
+
+Familienmitgliedschaft: Dynamische Personenliste im Formular. Alle teilen familyGroupId (= Head-ID). Ein SEPA-Mandat fuer Head. Gruppen-Annahme: Head annehmen → alle Familienmitglieder angenommen + eigene memberNo + Willkommensmail. Einzelstatus (ablehnen/kuendigen) pro Person moeglich.
+
 ### Admin-Einstellungen (S1-AP11, 2026-03-31)
 
 | Route | Zweck |
