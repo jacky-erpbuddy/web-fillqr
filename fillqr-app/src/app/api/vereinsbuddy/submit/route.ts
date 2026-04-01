@@ -5,11 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { validateTurnstile } from "@/lib/turnstile";
 import { parseSettings } from "@/lib/settings-schema";
-import {
-  sendMail,
-  buildMemberConfirmEmail,
-  buildMemberNotifyEmail,
-} from "@/lib/email";
+import { sendTemplatedMail } from "@/lib/email";
 
 /** IBAN-Pruefziffer Modulo 97 (nur DE) */
 function validateIbanChecksum(iban: string): boolean {
@@ -328,30 +324,23 @@ export async function POST(req: NextRequest) {
     return newMember;
   });
 
-  // 7. E-Mails (async, nicht blockierend)
-  const tenantName = tenant.name;
+  // 7. E-Mails via DB-Templates (async, nicht blockierend)
+  const templateVars = {
+    vereinsname: tenant.name,
+    vorname: data.firstName,
+    nachname: data.lastName,
+    mitgliedsname: `${data.firstName} ${data.lastName}`,
+    email: data.email,
+  };
 
   // An Antragsteller
-  try {
-    const { subject, html } = buildMemberConfirmEmail(tenantName);
-    await sendMail(data.email, subject, html);
-  } catch (err) {
-    console.error("[SUBMIT] Bestaetigungsmail fehlgeschlagen:", err);
-  }
+  sendTemplatedMail(prisma, tenant.id, "member_confirm", data.email, templateVars)
+    .catch((err) => console.error("[SUBMIT] Bestaetigungsmail fehlgeschlagen:", err));
 
   // An Admin (tbl_tenants.email)
   if (tenant.email) {
-    try {
-      const { subject, html } = buildMemberNotifyEmail(
-        tenantName,
-        data.firstName,
-        data.lastName,
-        data.email,
-      );
-      await sendMail(tenant.email, subject, html);
-    } catch (err) {
-      console.error("[SUBMIT] Admin-Notification fehlgeschlagen:", err);
-    }
+    sendTemplatedMail(prisma, tenant.id, "admin_notify", tenant.email, templateVars)
+      .catch((err) => console.error("[SUBMIT] Admin-Notification fehlgeschlagen:", err));
   }
 
   return NextResponse.json({ success: true, memberId: member.id });
