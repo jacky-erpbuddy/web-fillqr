@@ -230,6 +230,17 @@ Member: +exitDate (DateTime?). StatusActions: Kuendigungs-Dialog mit Austrittsda
 
 Dashboard: 4 SVG-Charts (kein externes Framework). Mitgliederentwicklung (Linien, 12 Monate), Verteilung nach Sparten (Balken), Verteilung nach Typ (Balken), Altersstruktur (Balken). Daten direkt aus Prisma in Server Component.
 
+### Manuell anlegen + Daten korrigieren (S2-AP28, 2026-04-01)
+
+Member: +changeLog (Json?). Aenderungsprotokoll mit userId, Feld, Vorher/Nachher.
+
+| Route | Zweck |
+|-------|-------|
+| /admin/mitglieder/neu | Mitglied manuell anlegen (Status waehlbar) |
+| /admin/mitglieder/[id]/bearbeiten | Alle Felder editierbar mit Changelog |
+
+tRPC: members.create (manuell anlegen, memberNo bei angenommen), members.update (bearbeiten mit Changelog).
+
 ### Foto-Upload + Familienmitgliedschaft (S2-AP22 + S2-AP23, 2026-04-01)
 
 Member-Felder: +familyGroupId (String?), +familyHead (Boolean?). photoPath existiert seit S1.

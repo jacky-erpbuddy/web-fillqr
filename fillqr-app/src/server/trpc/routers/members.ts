@@ -340,4 +340,144 @@ export const membersRouter = router({
       return result;
     }),
 
+  /** Mitglied manuell anlegen (AP-28) */
+  create: protectedProcedure
+    .input(
+      z.object({
+        firstName: z.string().min(1),
+        lastName: z.string().min(1),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        street: z.string().optional(),
+        zip: z.string().optional(),
+        city: z.string().optional(),
+        birthdate: z.string().optional(),
+        membershipTypeId: z.string().optional(),
+        paymentInterval: z.string().optional(),
+        paymentMethod: z.string().optional(),
+        departmentIds: z.array(z.string()).default([]),
+        status: z.enum(["eingegangen", "angenommen"]).default("eingegangen"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.user.tenantId;
+      const birthdate = input.birthdate ? new Date(input.birthdate) : null;
+
+      // Bei "angenommen": memberNo sofort vergeben
+      let memberNo: number | null = null;
+      if (input.status === "angenommen") {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const result = await ctx.prisma.$transaction(async (tx) => {
+              const highest = await tx.member.findFirst({
+                where: { tenantId, memberNo: { not: null } },
+                orderBy: { memberNo: "desc" },
+                select: { memberNo: true },
+              });
+              return (highest?.memberNo ?? 0) + 1;
+            });
+            memberNo = result;
+            break;
+          } catch (err) {
+            if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002" && attempt < 2) continue;
+            throw err;
+          }
+        }
+      }
+
+      const member = await ctx.prisma.member.create({
+        data: {
+          tenantId,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          phone: input.phone || null,
+          street: input.street || null,
+          zip: input.zip || null,
+          city: input.city || null,
+          birthdate,
+          membershipTypeId: input.membershipTypeId || null,
+          paymentInterval: input.paymentInterval || null,
+          paymentMethod: input.paymentMethod || null,
+          status: input.status,
+          memberNo,
+          statusHistory: [{ status: input.status, at: new Date().toISOString() }],
+        },
+      });
+
+      // Sparten zuordnen
+      if (input.departmentIds.length > 0) {
+        await ctx.prisma.memberDepartment.createMany({
+          data: input.departmentIds.map((deptId) => ({ memberId: member.id, departmentId: deptId })),
+        });
+      }
+
+      return member;
+    }),
+
+  /** Mitglied bearbeiten mit Changelog (AP-28) */
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+        street: z.string().optional(),
+        zip: z.string().optional(),
+        city: z.string().optional(),
+        birthdate: z.string().optional(),
+        membershipTypeId: z.string().optional(),
+        paymentInterval: z.string().optional(),
+        paymentMethod: z.string().optional(),
+        notes: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...updates } = input;
+      const tenantId = ctx.user.tenantId;
+
+      const current = await ctx.prisma.member.findFirst({
+        where: { id, tenantId },
+      });
+      if (!current) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Mitglied nicht gefunden" });
+      }
+
+      // Changelog erstellen
+      const changes: { at: string; userId: string; field: string; from: string; to: string }[] = [];
+      const now = new Date().toISOString();
+      const userId = ctx.user.userId;
+
+      const checkFields = ["firstName", "lastName", "email", "phone", "street", "zip", "city", "notes", "membershipTypeId", "paymentInterval", "paymentMethod"] as const;
+      for (const field of checkFields) {
+        if (updates[field] !== undefined && updates[field] !== (current[field] ?? "")) {
+          changes.push({ at: now, userId, field, from: String(current[field] ?? ""), to: String(updates[field] ?? "") });
+        }
+      }
+      if (updates.birthdate !== undefined) {
+        const oldBd = current.birthdate?.toISOString().split("T")[0] ?? "";
+        if (updates.birthdate !== oldBd) {
+          changes.push({ at: now, userId, field: "birthdate", from: oldBd, to: updates.birthdate });
+        }
+      }
+
+      const existingLog = Array.isArray(current.changeLog) ? current.changeLog as unknown[] : [];
+      const newLog = [...existingLog, ...changes];
+
+      const data: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(updates)) {
+        if (val !== undefined) {
+          if (key === "birthdate") {
+            data[key] = val ? new Date(val) : null;
+          } else {
+            data[key] = val || null;
+          }
+        }
+      }
+      data.changeLog = newLog;
+
+      return ctx.prisma.member.update({ where: { id }, data });
+    }),
 });

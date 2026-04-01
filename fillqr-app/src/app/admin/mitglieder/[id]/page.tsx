@@ -60,6 +60,12 @@ export default async function MemberDetailPage({
         >
           ← Zurueck zur Liste
         </Link>
+        <Link
+          href={`/admin/mitglieder/${id}/bearbeiten`}
+          className="text-sm text-blue-600 hover:text-blue-800 ml-4"
+        >
+          Bearbeiten
+        </Link>
       </div>
 
       <div className="flex items-center gap-3 mb-6">
@@ -229,6 +235,26 @@ export default async function MemberDetailPage({
                 <span className="text-gray-400">
                   {new Date(h.at).toLocaleString("de-DE")}
                 </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* Änderungsprotokoll */}
+      {Array.isArray(member.changeLog) && (member.changeLog as { at: string; field: string; from: string; to: string }[]).length > 0 && (
+        <div className="mt-6 bg-white rounded-lg border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Aenderungsprotokoll</h2>
+          <ol className="space-y-2">
+            {(member.changeLog as { at: string; field: string; from: string; to: string }[]).slice(-20).reverse().map((c, i) => (
+              <li key={i} className="text-sm text-gray-600">
+                <span className="text-gray-400">{new Date(c.at).toLocaleString("de-DE")}</span>
+                {" — "}
+                <span className="font-medium">{c.field}</span>
+                {": "}
+                <span className="line-through text-red-500">{c.from || "–"}</span>
+                {" → "}
+                <span className="text-green-600">{c.to || "–"}</span>
               </li>
             ))}
           </ol>

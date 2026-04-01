@@ -157,7 +157,12 @@ export default function MitgliederPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Mitglieder</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Mitglieder</h1>
+          <a href="/admin/mitglieder/neu" className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
+            + Neu anlegen
+          </a>
+        </div>
         <a
           href={exportUrl}
           className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50"

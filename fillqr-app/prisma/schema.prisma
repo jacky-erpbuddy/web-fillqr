@@ -132,6 +132,7 @@ model Member {
   photoPath        String?   @map("photo_path")
   notes            String?
   statusHistory    Json?     @map("status_history")
+  changeLog        Json?     @map("change_log")
   photoConsent     Boolean?  @map("photo_consent")
   newsletter       Boolean?
   volunteer        Boolean?
