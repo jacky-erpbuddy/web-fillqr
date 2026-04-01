@@ -243,11 +243,12 @@ export const membersRouter = router({
 
         // Gruppen-Annahme: Wenn Head angenommen → alle Familienmitglieder annehmen
         if (member.familyGroupId && member.familyHead) {
+          // Nur Mitglieder in annehmbarem Status (Finding 6: nicht abgelehnt → angenommen)
           const familyMembers = await ctx.prisma.member.findMany({
             where: {
               familyGroupId: member.familyGroupId,
               id: { not: input.id },
-              status: { not: "angenommen" },
+              status: { in: ["eingegangen", "in_pruefung"] },
             },
           });
 

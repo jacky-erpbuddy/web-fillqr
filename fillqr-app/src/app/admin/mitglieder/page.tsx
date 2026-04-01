@@ -12,6 +12,7 @@ type MemberRow = {
   status: string;
   createdAt: string;
   paymentInterval: string | null;
+  photoPath: string | null;
   membershipType: { name: string; fee: string } | null;
   departments: { department: { name: string } }[];
 };
@@ -265,8 +266,11 @@ export default function MitgliederPage() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/admin/mitglieder/${m.id}`}
-                      className="text-blue-600 hover:text-blue-800 font-medium"
+                      className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2"
                     >
+                      {m.photoPath && (
+                        <img src={m.photoPath} alt="" className="h-8 w-8 rounded-full object-cover" />
+                      )}
                       {m.firstName} {m.lastName}
                     </Link>
                   </td>

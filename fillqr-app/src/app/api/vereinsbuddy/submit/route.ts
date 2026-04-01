@@ -154,9 +154,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Settings laden (einmalig fuer alle Validierungen)
+  const settings = parseSettings(tenantApp.settingsJson);
+
   // 5c. Zahlungsart gegen Settings pruefen (Finding 3)
   if (data.paymentMethod) {
-    const settings = parseSettings(tenantApp.settingsJson);
     const allowed: string[] = [];
     if (settings.sepa_aktiv) allowed.push("sepa");
     if (settings.zahlungsarten.ueberweisung) allowed.push("ueberweisung");
@@ -183,6 +185,14 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+  }
+
+  // 5e. Foto Pflicht-Check (Server-Validierung — Finding 3)
+  if (settings.foto_upload === "pflicht" && !data.photoPath) {
+    return NextResponse.json(
+      { error: "Foto ist Pflicht" },
+      { status: 400 },
+    );
   }
 
   const entryDate = data.entryDate ? new Date(data.entryDate) : null;
