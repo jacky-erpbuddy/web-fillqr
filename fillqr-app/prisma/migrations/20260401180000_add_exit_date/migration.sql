@@ -1,0 +1,1 @@
+ALTER TABLE "tbl_members" ADD COLUMN IF NOT EXISTS "exit_date" TIMESTAMP(3);

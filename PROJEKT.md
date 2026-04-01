@@ -224,6 +224,12 @@ Formular: Abschnitt 4 (Zahlungsart Radio), Abschnitt 5 (SEPA conditional: Kontoi
 CSV-Import: /admin/einstellungen/import — Upload, Spalten-Mapping, Duplikat-Check (Email), memberNo auto. Status direkt "angenommen".
 CSV-Export erweitert: Mitgliedsnr, Telefon, Zahlungsart, IBAN (maskiert), Zusatzoptionen.
 
+### Kuendigung + Dashboard-Charts (S2-AP26 + S2-AP27, 2026-04-01)
+
+Member: +exitDate (DateTime?). StatusActions: Kuendigungs-Dialog mit Austrittsdatum-Picker + Ablehnungs-Dialog mit optionaler Begruendung. Kein automatischer Prozess bei Kuendigung.
+
+Dashboard: 4 SVG-Charts (kein externes Framework). Mitgliederentwicklung (Linien, 12 Monate), Verteilung nach Sparten (Balken), Verteilung nach Typ (Balken), Altersstruktur (Balken). Daten direkt aus Prisma in Server Component.
+
 ### Foto-Upload + Familienmitgliedschaft (S2-AP22 + S2-AP23, 2026-04-01)
 
 Member-Felder: +familyGroupId (String?), +familyHead (Boolean?). photoPath existiert seit S1.

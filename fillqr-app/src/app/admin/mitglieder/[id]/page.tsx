@@ -139,6 +139,7 @@ export default async function MemberDetailPage({
               value={member.entryDate?.toLocaleDateString("de-DE")}
             />
             <Row label="Mitgliedsnr." value={member.memberNo?.toString()} />
+            <Row label="Austrittsdatum" value={member.exitDate?.toLocaleDateString("de-DE")} />
             <Row label="Notizen" value={member.notes} />
           </dl>
         </div>

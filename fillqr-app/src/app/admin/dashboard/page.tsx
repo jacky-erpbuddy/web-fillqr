@@ -1,6 +1,8 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import BarChart from "@/components/charts/BarChart";
+import LineChart from "@/components/charts/LineChart";
 
 const STATUS_COLORS: Record<string, string> = {
   eingegangen: "bg-blue-100 text-blue-800",
@@ -14,33 +16,89 @@ export default async function DashboardPage() {
   const user = await requireAuth();
   const tenantId = user.tenantId;
 
-  const [eingegangen, inPruefung, angenommen, recent] = await Promise.all([
+  const now = new Date();
+
+  const [eingegangen, inPruefung, angenommen, gekuendigt, recent] = await Promise.all([
     prisma.member.count({ where: { tenantId, status: "eingegangen" } }),
     prisma.member.count({ where: { tenantId, status: "in_pruefung" } }),
     prisma.member.count({ where: { tenantId, status: "angenommen" } }),
+    prisma.member.count({ where: { tenantId, status: "gekuendigt" } }),
     prisma.member.findMany({
       where: { tenantId },
       orderBy: { createdAt: "desc" },
       take: 5,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        status: true,
-        createdAt: true,
-      },
+      select: { id: true, firstName: true, lastName: true, status: true, createdAt: true },
     }),
   ]);
+
+  // Chart-Daten
+  const months: { label: string; zugaenge: number; abgaenge: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+    const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const [zugaenge, abgaenge] = await Promise.all([
+      prisma.member.count({ where: { tenantId, createdAt: { gte: d, lte: end }, status: { not: "abgelehnt" } } }),
+      prisma.member.count({ where: { tenantId, exitDate: { gte: d, lte: end } } }),
+    ]);
+    months.push({ label, zugaenge, abgaenge });
+  }
+
+  const deptMembers = await prisma.memberDepartment.groupBy({
+    by: ["departmentId"],
+    where: { member: { tenantId, status: "angenommen" } },
+    _count: true,
+  });
+  const depts = await prisma.department.findMany({
+    where: { id: { in: deptMembers.map((d) => d.departmentId) } },
+    select: { id: true, name: true },
+  });
+  const spartenData = deptMembers.map((d) => ({
+    label: depts.find((dp) => dp.id === d.departmentId)?.name ?? "?",
+    value: d._count,
+  }));
+
+  const typMembers = await prisma.member.groupBy({
+    by: ["membershipTypeId"],
+    where: { tenantId, status: "angenommen", membershipTypeId: { not: null } },
+    _count: true,
+  });
+  const types = await prisma.membershipType.findMany({
+    where: { id: { in: typMembers.map((t) => t.membershipTypeId!).filter(Boolean) } },
+    select: { id: true, name: true },
+  });
+  const typData = typMembers.map((t) => ({
+    label: types.find((tp) => tp.id === t.membershipTypeId)?.name ?? "?",
+    value: t._count,
+  }));
+
+  const membersAge = await prisma.member.findMany({
+    where: { tenantId, status: "angenommen", birthdate: { not: null } },
+    select: { birthdate: true },
+  });
+  const ageGroups = { "0-17": 0, "18-30": 0, "31-50": 0, "51+": 0 };
+  for (const m of membersAge) {
+    if (!m.birthdate) continue;
+    let age = now.getFullYear() - m.birthdate.getFullYear();
+    const md = now.getMonth() - m.birthdate.getMonth();
+    if (md < 0 || (md === 0 && now.getDate() < m.birthdate.getDate())) age--;
+    if (age < 18) ageGroups["0-17"]++;
+    else if (age <= 30) ageGroups["18-30"]++;
+    else if (age <= 50) ageGroups["31-50"]++;
+    else ageGroups["51+"]++;
+  }
+  const ageData = Object.entries(ageGroups).map(([label, value]) => ({ label, value }));
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3 mb-8">
+      <div className="grid gap-4 md:grid-cols-4 mb-8">
         <StatCard label="Neue Antraege" value={eingegangen} color="blue" />
         <StatCard label="Mitglieder" value={angenommen} color="green" />
         <StatCard label="In Pruefung" value={inPruefung} color="yellow" />
+        <StatCard label="Gekuendigt" value={gekuendigt} color="gray" />
       </div>
 
       {/* Letzte Eingaenge */}
@@ -89,6 +147,26 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Charts (AP-27) */}
+      <div className="grid gap-6 lg:grid-cols-2 mt-8">
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Mitgliederentwicklung (12 Monate)</h2>
+          <LineChart data={months} />
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Verteilung nach Sparten</h2>
+          <BarChart data={spartenData} color="#3b82f6" />
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Verteilung nach Mitgliedstyp</h2>
+          <BarChart data={typData} color="#8b5cf6" />
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">Altersstruktur</h2>
+          <BarChart data={ageData} color="#f59e0b" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -100,17 +178,19 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  color: "blue" | "green" | "yellow";
+  color: "blue" | "green" | "yellow" | "gray";
 }) {
   const colors = {
     blue: "border-blue-200 bg-blue-50",
     green: "border-green-200 bg-green-50",
     yellow: "border-yellow-200 bg-yellow-50",
+    gray: "border-gray-200 bg-gray-50",
   };
   const textColors = {
     blue: "text-blue-700",
     green: "text-green-700",
     yellow: "text-yellow-700",
+    gray: "text-gray-700",
   };
 
   return (

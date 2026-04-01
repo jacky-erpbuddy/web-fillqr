@@ -152,7 +152,8 @@ export const membersRouter = router({
       z.object({
         id: z.string(),
         newStatus: z.enum(["eingegangen", "in_pruefung", "angenommen", "abgelehnt", "gekuendigt"]),
-        reason: z.string().optional(), // Ablehnungsgrund (nur bei abgelehnt)
+        reason: z.string().optional(),
+        exitDate: z.string().optional(), // Austrittsdatum (nur bei gekuendigt)
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -307,12 +308,18 @@ export const membersRouter = router({
         return updated;
       }
 
+      const updateData: Record<string, unknown> = {
+        status: input.newStatus,
+        statusHistory: history,
+      };
+      // Austrittsdatum bei Kündigung
+      if (input.newStatus === "gekuendigt" && input.exitDate) {
+        updateData.exitDate = new Date(input.exitDate);
+      }
+
       const result = await ctx.prisma.member.update({
         where: { id: input.id },
-        data: {
-          status: input.newStatus,
-          statusHistory: history,
-        },
+        data: updateData,
         include: { tenant: { select: { name: true } } },
       });
 
@@ -329,4 +336,78 @@ export const membersRouter = router({
 
       return result;
     }),
+
+  /** Dashboard-Charts Daten (AP-27) */
+  chartStats: protectedProcedure.query(async ({ ctx }) => {
+    const tenantId = ctx.user.tenantId;
+    const now = new Date();
+
+    // 1. Mitgliederentwicklung (letzte 12 Monate)
+    const months: { label: string; zugaenge: number; abgaenge: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+      const zugaenge = await ctx.prisma.member.count({
+        where: { tenantId, createdAt: { gte: d, lte: end }, status: { not: "abgelehnt" } },
+      });
+      const abgaenge = await ctx.prisma.member.count({
+        where: { tenantId, exitDate: { gte: d, lte: end } },
+      });
+      months.push({ label, zugaenge, abgaenge });
+    }
+
+    // 2. Verteilung nach Sparten
+    const deptMembers = await ctx.prisma.memberDepartment.groupBy({
+      by: ["departmentId"],
+      where: { member: { tenantId, status: "angenommen" } },
+      _count: true,
+    });
+    const deptIds = deptMembers.map((d) => d.departmentId);
+    const depts = await ctx.prisma.department.findMany({
+      where: { id: { in: deptIds } },
+      select: { id: true, name: true },
+    });
+    const spartenVerteilung = deptMembers.map((d) => ({
+      label: depts.find((dp) => dp.id === d.departmentId)?.name ?? "?",
+      value: d._count,
+    }));
+
+    // 3. Verteilung nach Mitgliedstyp
+    const typMembers = await ctx.prisma.member.groupBy({
+      by: ["membershipTypeId"],
+      where: { tenantId, status: "angenommen", membershipTypeId: { not: null } },
+      _count: true,
+    });
+    const typIds = typMembers.map((t) => t.membershipTypeId!);
+    const types = await ctx.prisma.membershipType.findMany({
+      where: { id: { in: typIds } },
+      select: { id: true, name: true },
+    });
+    const typVerteilung = typMembers.map((t) => ({
+      label: types.find((tp) => tp.id === t.membershipTypeId)?.name ?? "?",
+      value: t._count,
+    }));
+
+    // 4. Altersstruktur
+    const membersWithAge = await ctx.prisma.member.findMany({
+      where: { tenantId, status: "angenommen", birthdate: { not: null } },
+      select: { birthdate: true },
+    });
+    const gruppen = { "0-17": 0, "18-30": 0, "31-50": 0, "51+": 0 };
+    for (const m of membersWithAge) {
+      if (!m.birthdate) continue;
+      let age = now.getFullYear() - m.birthdate.getFullYear();
+      const md = now.getMonth() - m.birthdate.getMonth();
+      if (md < 0 || (md === 0 && now.getDate() < m.birthdate.getDate())) age--;
+      if (age < 18) gruppen["0-17"]++;
+      else if (age <= 30) gruppen["18-30"]++;
+      else if (age <= 50) gruppen["31-50"]++;
+      else gruppen["51+"]++;
+    }
+    const altersstruktur = Object.entries(gruppen).map(([label, value]) => ({ label, value }));
+
+    return { months, spartenVerteilung, typVerteilung, altersstruktur };
+  }),
 });
