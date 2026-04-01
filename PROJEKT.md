@@ -526,5 +526,43 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 
 ---
 
+## Demo-Umgebung (S3-AP29 bis AP34, 2026-04-01)
+
+### Demo-Tenant
+- Name: "TSV Musterstadt e.V." (slug: demo, Subdomain: demo.fillqr.de)
+- AppUser: demo@fillqr.de / demo2026
+- 4 MembershipTypes, 4 Departments, SEPA aktiv, Familienmitgliedschaft aktiv
+- 8+2 Demo-Mitglieder (diverse Status: angenommen, eingegangen, in_pruefung, abgelehnt)
+- Seed-Script: `scripts/seed-demo.ts` (idempotent, loescht+erstellt)
+- Reset-Script: `scripts/reset-demo.ts` (loescht nur Member-Daten, seeded neu)
+
+### Demo Auto-Login
+- Subdomain `demo` ist reserved, aber Middleware setzt trotzdem `x-tenant-slug: "demo"`
+- Login-Page (`(auth)/login/page.tsx`) erkennt Demo-Tenant und redirected zu `/api/auth/demo-login`
+- `/api/auth/demo-login` erstellt iron-session fuer Demo-User und redirected zu `/admin/dashboard`
+- Kein manuelles Login noetig fuer demo.fillqr.de/admin
+
+### Demo-Banner
+- Public Form: "Dies ist eine Demo — keine echten Daten eingeben..."
+- Admin: "Demo-Ansicht — Aenderungen werden alle 12 Stunden zurueckgesetzt."
+- SEPA-Feld: Test-IBAN (DE89370400440532013000) vorausgefuellt mit "(Test-IBAN)" Hinweis
+
+### Demo-Reset Cron
+- System-Cron auf Server: `0 0,12 * * * docker exec fillqr-app node /app/scripts/reset-demo.js`
+- Loescht alle Member-Daten und seeded neu (alle 12h)
+- Demo-Notification: Bei Form-Submit an Jacky via n8n JV2_Notify (N8N_NOTIFY_URL)
+
+### QR-Code
+- Generiert mit `scripts/generate-qr.ts` (qrcode Package)
+- PNG + SVG in `public/qr-demo.png` und `public/qr-demo.svg`
+- Im Demo-Admin Dashboard als Download + auf Landingpage
+- Landingpage: `landing/public/index.html` → Demo-Sektion mit QR-Code
+
+### Caddy
+- demo.fillqr.de MUSS oeffentlich sein (IP-Whitelist + Basic Auth entfernen)
+- Aktuell restricted → muss nach Deploy geaendert werden
+
+---
+
 *Erstellt: 2026-02-10*
-*Zuletzt aktualisiert: 2026-03-31 (S1-AP16+17: Dashboard, Mitgliederliste, Detailansicht, Status-Workflow)*
+*Zuletzt aktualisiert: 2026-04-01 (S3-AP29-34: Demo-Umgebung — Tenant, Seed, Banner, Auto-Login, Cron, QR-Code)*

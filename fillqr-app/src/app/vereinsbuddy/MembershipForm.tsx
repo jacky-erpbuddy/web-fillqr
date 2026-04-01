@@ -46,6 +46,7 @@ type Props = {
   membershipTypes: MembershipTypeOption[];
   departments: DepartmentOption[];
   settings: FormSettings;
+  isDemo?: boolean;
 };
 
 // ─── Constants ───
@@ -87,6 +88,7 @@ export default function MembershipForm({
   membershipTypes,
   departments,
   settings,
+  isDemo = false,
 }: Props) {
   const router = useRouter();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -331,6 +333,13 @@ export default function MembershipForm({
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="w-full max-w-lg lg:max-w-2xl mx-auto">
+        {/* Demo-Banner */}
+        {isDemo && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-4 text-sm">
+            <span className="font-medium">Demo:</span> Dies ist eine Demo — keine echten Daten eingeben. Formulardaten werden alle 12 Stunden geloescht.
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">{tenantName}</h1>
@@ -934,7 +943,7 @@ export default function MembershipForm({
 
                 <div>
                   <label htmlFor="iban" className={labelCls}>
-                    IBAN *
+                    IBAN *{isDemo && <span className="text-amber-600 font-normal"> (Test-IBAN)</span>}
                   </label>
                   <input
                     type="text"
@@ -942,6 +951,7 @@ export default function MembershipForm({
                     name="iban"
                     required
                     placeholder="DE89 3704 0044 0532 0130 00"
+                    defaultValue={isDemo ? "DE89 3704 0044 0532 0130 00" : undefined}
                     onBlur={(e) => validateIban(e.target.value)}
                     className={inputCls}
                   />

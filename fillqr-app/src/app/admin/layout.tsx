@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -32,6 +33,8 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAuth();
+  const headerList = await headers();
+  const isDemo = headerList.get("x-tenant-slug") === "demo";
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: user.tenantId },
@@ -64,20 +67,29 @@ export default async function AdminLayout({
           {/* User Info + Logout */}
           <div className="px-6 py-4 border-t border-gray-200">
             <p className="text-sm text-gray-600 truncate">{user.email}</p>
-            <form action="/logout" method="POST" style={{ marginTop: 8 }}>
-              <button
-                type="submit"
-                className="text-sm text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer p-0"
-              >
-                Abmelden
-              </button>
-            </form>
+            {!isDemo && (
+              <form action="/logout" method="POST" style={{ marginTop: 8 }}>
+                <button
+                  type="submit"
+                  className="text-sm text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer p-0"
+                >
+                  Abmelden
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </aside>
 
       {/* Content */}
-      <main className="flex-1 p-6 md:p-8">{children}</main>
+      <main className="flex-1 p-6 md:p-8">
+        {isDemo && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-4 text-sm">
+            <span className="font-medium">Demo:</span> Demo-Ansicht — Aenderungen werden alle 12 Stunden zurueckgesetzt.
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

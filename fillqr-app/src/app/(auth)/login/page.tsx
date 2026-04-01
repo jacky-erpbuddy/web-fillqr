@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,12 @@ export default async function LoginPage({ searchParams }: Props) {
   // Host-Check: Betreiber-Host → nur Passwort, sonst → E-Mail + Passwort
   const headersList = await headers();
   const isBetreiber = headersList.get("x-betreiber") === "true";
+
+  // Demo Auto-Login: Wenn Demo-Tenant → direkt zum Auto-Login redirect
+  const tenantSlug = headersList.get("x-tenant-slug");
+  if (tenantSlug === "demo") {
+    redirect("/api/auth/demo-login?redirect=/admin/dashboard");
+  }
 
   if (isBetreiber) {
     return (

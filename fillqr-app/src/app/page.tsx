@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { getTenant } from "@/lib/get-tenant";
 import { prisma } from "@/lib/prisma";
 import { parseSettings } from "@/lib/settings-schema";
@@ -5,6 +6,10 @@ import ErrorLayout from "@/components/error-layout";
 import MembershipForm from "@/app/vereinsbuddy/MembershipForm";
 
 export default async function Home() {
+  const headerList = await headers();
+  const tenantSlug = headerList.get("x-tenant-slug");
+  const isDemo = tenantSlug === "demo";
+
   const result = await getTenant();
 
   // Kein Tenant-Slug (reservierte Subdomain oder direkte Domain)
@@ -96,6 +101,7 @@ export default async function Home() {
           fotoUpload: settings.foto_upload,
           familienmitgliedschaft: settings.familienmitgliedschaft,
         }}
+        isDemo={isDemo}
       />
     );
   }

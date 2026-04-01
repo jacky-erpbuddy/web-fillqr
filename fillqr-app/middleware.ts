@@ -41,6 +41,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host") ?? "";
 
+
   // --- Betreiber-Panel: admin.fillqr.de ---
   if (isBetreiberHost(host)) {
     // Auth-Guard: Betreiber-Cookie pruefen auf nicht-oeffentlichen Pfaden
@@ -75,7 +76,11 @@ export function middleware(request: NextRequest) {
       slug = request.nextUrl.searchParams.get("tenant");
     }
 
-    if (slug && !isReserved(slug)) {
+    // Demo-Subdomain: Sonderfall — bleibt "reserved" (kein User-Slug),
+    // aber Middleware setzt x-tenant-slug trotzdem (fuer Demo-Tenant)
+    if (slug === "demo") {
+      requestHeaders.set("x-tenant-slug", "demo");
+    } else if (slug && !isReserved(slug)) {
       requestHeaders.set("x-tenant-slug", slug);
     }
   } catch (error) {
@@ -86,7 +91,13 @@ export function middleware(request: NextRequest) {
   if (!isPublicPath(pathname)) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
     if (!sessionCookie) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      const loginUrl = new URL("/login", request.url);
+      // Dev-Mode: ?tenant= Param erhalten damit Login-Page den Tenant kennt
+      if (process.env.NODE_ENV === "development") {
+        const tenant = request.nextUrl.searchParams.get("tenant");
+        if (tenant) loginUrl.searchParams.set("tenant", tenant);
+      }
+      return NextResponse.redirect(loginUrl);
     }
   }
 

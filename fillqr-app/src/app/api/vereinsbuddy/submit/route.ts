@@ -345,5 +345,16 @@ export async function POST(req: NextRequest) {
       .catch((err) => console.error("[SUBMIT] Admin-Notification fehlgeschlagen:", err));
   }
 
+  // 8. Demo-Notification: Jacky informieren wenn jemand die Demo nutzt
+  if (slug === "demo" && process.env.N8N_NOTIFY_URL) {
+    fetch(process.env.N8N_NOTIFY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatInput: `Demo-Formular: ${data.firstName} ${data.lastName} hat einen Antrag abgeschickt (demo.fillqr.de)`,
+      }),
+    }).catch((err) => console.error("[SUBMIT] Demo-Notification fehlgeschlagen:", err));
+  }
+
   return NextResponse.json({ success: true, memberId: member.id });
 }

@@ -1,6 +1,8 @@
+import { headers } from "next/headers";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import Image from "next/image";
 import BarChart from "@/components/charts/BarChart";
 import LineChart from "@/components/charts/LineChart";
 
@@ -15,6 +17,8 @@ const STATUS_COLORS: Record<string, string> = {
 export default async function DashboardPage() {
   const user = await requireAuth();
   const tenantId = user.tenantId;
+  const headerList = await headers();
+  const isDemo = headerList.get("x-tenant-slug") === "demo";
 
   const now = new Date();
 
@@ -147,6 +151,23 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* QR-Code Download (nur Demo) */}
+      {isDemo && (
+        <div className="bg-white rounded-lg border border-gray-200 p-5 mt-8">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">QR-Code fuer Demo-Formular</h2>
+          <div className="flex items-center gap-6">
+            <Image src="/qr-demo.png" alt="QR-Code demo.fillqr.de" width={150} height={150} />
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">Scanne den QR-Code um das Demo-Formular zu oeffnen.</p>
+              <div className="flex gap-3">
+                <a href="/qr-demo.png" download className="text-sm text-blue-600 hover:text-blue-800 underline">PNG herunterladen</a>
+                <a href="/qr-demo.svg" download className="text-sm text-blue-600 hover:text-blue-800 underline">SVG herunterladen</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts (AP-27) */}
       <div className="grid gap-6 lg:grid-cols-2 mt-8">
