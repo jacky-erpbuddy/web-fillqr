@@ -30,6 +30,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Scripts fuer Demo-Seed/Reset (laufen via docker exec npx tsx)
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs /app/src/generated ./src/generated
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
