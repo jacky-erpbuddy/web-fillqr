@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { VereinsBuddySettings } from "@/lib/settings-schema";
 
@@ -81,6 +81,7 @@ const TABS = [
   "Optionale Felder",
   "Dokumente",
   "Impressum",
+  "E-Mail-Vorlagen",
 ] as const;
 
 // ─── Main Component ───
@@ -123,6 +124,7 @@ export default function SettingsEditor({
       {activeTab === 4 && <OptionaleFelderTab settings={initialSettings} />}
       {activeTab === 5 && <DokumenteTab settings={initialSettings} />}
       {activeTab === 6 && <ImpressumTab settings={initialSettings} />}
+      {activeTab === 7 && <EmailVorlagenTab />}
     </div>
   );
 }
@@ -877,6 +879,102 @@ function ImpressumTab({ settings }: { settings: VereinsBuddySettings }) {
       <button onClick={handleSave} disabled={saving} className={btnPrimary}>
         {saving ? "Speichert..." : "Speichern"}
       </button>
+    </div>
+  );
+}
+
+// ─── Tab 8: E-Mail-Vorlagen ───
+
+const TEMPLATE_KEYS = [
+  { key: "member_confirm", label: "Eingangsbestaetigung (an Antragsteller)" },
+  { key: "admin_notify", label: "Neue-Antrag-Notification (an Admin)" },
+  { key: "member_welcome", label: "Aufnahmebestaetigung / Willkommen" },
+  { key: "member_reject", label: "Ablehnung" },
+] as const;
+
+const PLACEHOLDER_HELP = "{vereinsname}, {vorname}, {nachname}, {mitgliedsname}, {mitgliedsnummer}, {beitrag}, {zahlungsweise}, {intervall}, {sparten}, {eintrittsdatum}, {ablehnungsgrund}";
+
+function EmailVorlagenTab() {
+  const router = useRouter();
+  const [templates, setTemplates] = useState<Record<string, { subject: string; body: string }>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/trpc/settings.listEmailTemplates");
+        const data = await res.json();
+        const items = data?.result?.data?.json ?? data?.result?.data ?? [];
+        const map: Record<string, { subject: string; body: string }> = {};
+        for (const t of items as { templateKey: string; subject: string; body: string }[]) {
+          map[t.templateKey] = { subject: t.subject, body: t.body };
+        }
+        setTemplates(map);
+      } catch { /* defaults */ }
+      setLoaded(true);
+    })();
+  }, []);
+
+  function getT(key: string) { return templates[key] ?? { subject: "", body: "" }; }
+  function setT(key: string, field: "subject" | "body", value: string) {
+    setTemplates((p) => ({ ...p, [key]: { ...getT(key), [field]: value } }));
+  }
+
+  async function save(key: string) {
+    setSavingKey(key); setMsg(null);
+    try {
+      await trpcMutate("settings.updateEmailTemplate", { templateKey: key, ...getT(key) });
+      setMsg({ type: "success", text: "Vorlage gespeichert" }); router.refresh();
+    } catch (err) { setMsg({ type: "error", text: err instanceof Error ? err.message : "Fehler" }); }
+    finally { setSavingKey(null); }
+  }
+
+  async function reset(key: string) {
+    setSavingKey(key); setMsg(null);
+    try {
+      await trpcMutate("settings.resetEmailTemplate", { templateKey: key });
+      setTemplates((p) => { const n = { ...p }; delete n[key]; return n; });
+      setMsg({ type: "success", text: "Auf Standard zurueckgesetzt" }); router.refresh();
+    } catch (err) { setMsg({ type: "error", text: err instanceof Error ? err.message : "Fehler" }); }
+    finally { setSavingKey(null); }
+  }
+
+  if (!loaded) return <p className="text-sm text-gray-500">Laden...</p>;
+
+  return (
+    <div className="space-y-8">
+      <Message msg={msg} />
+      <p className="text-sm text-gray-500">
+        Passe die E-Mail-Vorlagen an. Platzhalter: <code className="text-xs bg-gray-100 px-1 rounded">{PLACEHOLDER_HELP}</code>
+      </p>
+      {TEMPLATE_KEYS.map(({ key, label }) => {
+        const t = getT(key);
+        return (
+          <div key={key} className="border border-gray-200 rounded-md p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">{label}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Betreff</label>
+                <input type="text" value={t.subject} onChange={(e) => setT(key, "subject", e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Inhalt</label>
+                <textarea value={t.body} onChange={(e) => setT(key, "body", e.target.value)} rows={6} className={inputCls} />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => save(key)} disabled={savingKey === key} className={btnPrimary}>
+                  {savingKey === key ? "Speichert..." : "Speichern"}
+                </button>
+                <button onClick={() => reset(key)} disabled={savingKey === key} className={btnSecondary}>
+                  Auf Standard zuruecksetzen
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

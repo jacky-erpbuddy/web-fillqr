@@ -30,6 +30,7 @@ model Tenant {
   membershipTypes MembershipType[]
   departments     Department[]
   sepaMandates    SepaMandate[]
+  emailTemplates  EmailTemplate[]
 
   @@map("tbl_tenants")
 }
@@ -187,6 +188,22 @@ model SepaMandate {
 
   @@index([tenantId])
   @@map("tbl_sepa_mandates")
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  appKey      String   @map("app_key")
+  templateKey String   @map("template_key")
+  subject     String
+  body        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, appKey, templateKey])
+  @@map("tbl_email_templates")
 }
 
 model MemberDepartment {

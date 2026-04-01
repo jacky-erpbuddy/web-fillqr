@@ -216,4 +216,55 @@ export const settingsRouter = router({
         data: { settingsJson: input as object },
       });
     }),
+
+  // ─── E-Mail-Vorlagen (AP-24) ───
+
+  listEmailTemplates: protectedProcedure.query(async ({ ctx }) => {
+    const templates = await ctx.prisma.emailTemplate.findMany({
+      where: { tenantId: ctx.user.tenantId, appKey: ctx.user.appKey },
+      orderBy: { templateKey: "asc" },
+    });
+    return templates;
+  }),
+
+  updateEmailTemplate: protectedProcedure
+    .input(
+      z.object({
+        templateKey: z.string(),
+        subject: z.string().min(1),
+        body: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.emailTemplate.upsert({
+        where: {
+          tenantId_appKey_templateKey: {
+            tenantId: ctx.user.tenantId,
+            appKey: ctx.user.appKey,
+            templateKey: input.templateKey,
+          },
+        },
+        update: { subject: input.subject, body: input.body },
+        create: {
+          tenantId: ctx.user.tenantId,
+          appKey: ctx.user.appKey,
+          templateKey: input.templateKey,
+          subject: input.subject,
+          body: input.body,
+        },
+      });
+    }),
+
+  resetEmailTemplate: protectedProcedure
+    .input(z.object({ templateKey: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.emailTemplate.deleteMany({
+        where: {
+          tenantId: ctx.user.tenantId,
+          appKey: ctx.user.appKey,
+          templateKey: input.templateKey,
+        },
+      });
+      return { success: true };
+    }),
 });

@@ -213,6 +213,17 @@ Settings-Erweiterung: sepa_glaeubiger_id, sepa_pre_notification (Default 14), za
 
 Formular: Abschnitt 4 (Zahlungsart Radio), Abschnitt 5 (SEPA conditional: Kontoinhaber, IBAN mit Client+Server-Validierung, BIC, Mandatstext, Consent), Abschnitt 6 (Zusatzoptionen settings-gesteuert). IBAN: nur DE-Format, Modulo-97 Pruefziffer server-seitig. Mandatsreferenz: FILLQR-{tenantId kurz}-{laufende_nr}, UNIQUE + Retry.
 
+### E-Mail-Vorlagen + CSV-Import/Export (S2-AP24 + S2-AP25, 2026-04-01)
+
+| Tabelle | Zweck |
+|---------|-------|
+| tbl_email_templates | Anpassbare E-Mail-Vorlagen pro Tenant (templateKey, subject, body) |
+
+4 Vorlagen: member_confirm, admin_notify, member_welcome, member_reject. Platzhalter: {vereinsname}, {vorname}, {nachname}, {mitgliedsnummer}, {beitrag}, etc. Admin-Tab "E-Mail-Vorlagen" in Einstellungen. Defaults in email-defaults.ts. Ablehnungsmail mit optionaler Begruendung.
+
+CSV-Import: /admin/einstellungen/import — Upload, Spalten-Mapping, Duplikat-Check (Email), memberNo auto. Status direkt "angenommen".
+CSV-Export erweitert: Mitgliedsnr, Telefon, Zahlungsart, IBAN (maskiert), Zusatzoptionen.
+
 ### Foto-Upload + Familienmitgliedschaft (S2-AP22 + S2-AP23, 2026-04-01)
 
 Member-Felder: +familyGroupId (String?), +familyHead (Boolean?). photoPath existiert seit S1.

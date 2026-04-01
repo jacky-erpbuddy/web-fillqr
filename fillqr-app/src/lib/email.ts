@@ -56,78 +56,77 @@ export function buildInviteEmail(link: string): { subject: string; html: string 
   };
 }
 
-export function buildMemberConfirmEmail(tenantName: string): {
-  subject: string;
-  html: string;
-} {
-  return {
-    subject: `Dein Mitgliedsantrag bei ${tenantName}`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Vielen Dank fuer deinen Antrag!</h2>
-        <p>Deine Daten wurden an den <strong>${tenantName}</strong> uebermittelt.</p>
-        <p>Die Aufnahme erfolgt nach Pruefung durch den Vorstand. Du erhaeltst eine weitere Nachricht sobald ueber deinen Antrag entschieden wurde.</p>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">
-          Diese E-Mail wurde automatisch versendet. Bitte antworte nicht auf diese Nachricht.
-        </p>
-      </div>
-    `,
-  };
-}
+// ─── Template-basierte E-Mails (AP-24) ───
 
-export function buildMemberNotifyEmail(
-  tenantName: string,
-  firstName: string,
-  lastName: string,
-  email: string,
+import { EMAIL_DEFAULTS } from "./email-defaults";
+import type { PrismaClient } from "@/generated/prisma/client";
+
+/** Platzhalter in Text ersetzen. Werte werden HTML-escaped (Finding 4: esc auf Werte, nicht Template). */
+export function renderTemplate(
+  template: { subject: string; body: string },
+  vars: Record<string, string>,
 ): { subject: string; html: string } {
-  return {
-    subject: `Neuer Mitgliedsantrag: ${firstName} ${lastName}`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Neuer Mitgliedsantrag</h2>
-        <p>Bei <strong>${tenantName}</strong> ist ein neuer Antrag eingegangen:</p>
-        <table style="border-collapse: collapse; margin: 16px 0;">
-          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Name:</td><td>${firstName} ${lastName}</td></tr>
-          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">E-Mail:</td><td>${email}</td></tr>
-          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Status:</td><td>eingegangen</td></tr>
-        </table>
-        <p>Bitte pruefe den Antrag im Admin-Bereich.</p>
-      </div>
-    `,
-  };
+  let subject = template.subject;
+  let body = template.body;
+  for (const [key, value] of Object.entries(vars)) {
+    const escaped = esc(value);
+    const placeholder = `{${key}}`;
+    subject = subject.replaceAll(placeholder, value); // Subject: kein HTML
+    body = body.replaceAll(placeholder, escaped); // Body: escaped
+  }
+  // Body in HTML-Wrapper
+  const html = `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; white-space: pre-line;">${body}</div>`;
+  return { subject, html };
 }
 
+/** Template aus DB laden, Fallback auf Default */
+export async function loadTemplate(
+  prisma: PrismaClient,
+  tenantId: string,
+  templateKey: string,
+): Promise<{ subject: string; body: string }> {
+  const dbTemplate = await prisma.emailTemplate.findUnique({
+    where: { tenantId_appKey_templateKey: { tenantId, appKey: "vereinsbuddy", templateKey } },
+    select: { subject: true, body: true },
+  });
+  if (dbTemplate) return dbTemplate;
+  return EMAIL_DEFAULTS[templateKey] ?? { subject: "", body: "" };
+}
+
+/** Template laden + rendern + senden (Convenience-Funktion) */
+export async function sendTemplatedMail(
+  prisma: PrismaClient,
+  tenantId: string,
+  templateKey: string,
+  to: string,
+  vars: Record<string, string>,
+): Promise<void> {
+  const template = await loadTemplate(prisma, tenantId, templateKey);
+  const { subject, html } = renderTemplate(template, vars);
+  await sendMail(to, subject, html);
+}
+
+// ─── Legacy-Funktionen (fuer buildInviteEmail, buildResetEmail — nicht template-basiert) ───
+
+/** @deprecated Nutze sendTemplatedMail() fuer member_confirm */
+export function buildMemberConfirmEmail(tenantName: string) {
+  return renderTemplate(EMAIL_DEFAULTS.member_confirm, { vereinsname: tenantName, vorname: "", nachname: "" });
+}
+
+/** @deprecated Nutze sendTemplatedMail() fuer admin_notify */
+export function buildMemberNotifyEmail(tenantName: string, firstName: string, lastName: string, email: string) {
+  return renderTemplate(EMAIL_DEFAULTS.admin_notify, { vereinsname: tenantName, vorname: firstName, nachname: lastName, email });
+}
+
+/** @deprecated Nutze sendTemplatedMail() fuer member_welcome */
 export function buildWelcomeEmail(params: {
-  tenantName: string;
-  firstName: string;
-  lastName: string;
-  memberNo: number;
-  fee: string;
-  interval: string;
-  paymentMethod: string;
-}): { subject: string; html: string } {
-  const { tenantName, firstName, lastName, memberNo, fee, interval, paymentMethod } = params;
-  return {
-    subject: `Willkommen im ${tenantName}!`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Willkommen im ${esc(tenantName)}!</h2>
-        <p>Hallo ${esc(firstName)} ${esc(lastName)},</p>
-        <p>dein Mitgliedsantrag wurde angenommen. Hier deine Daten im Ueberblick:</p>
-        <table style="border-collapse: collapse; margin: 16px 0;">
-          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Mitgliedsnummer:</td><td><strong>${memberNo}</strong></td></tr>
-          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Beitrag:</td><td>${esc(fee)}</td></tr>
-          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Zahlungsintervall:</td><td>${esc(interval)}</td></tr>
-          <tr><td style="padding: 4px 12px 4px 0; color: #6b7280;">Zahlungsweise:</td><td>${esc(paymentMethod)}</td></tr>
-        </table>
-        <p>Bei Fragen wende dich bitte an deinen Verein.</p>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">
-          Diese E-Mail wurde automatisch versendet. Bitte antworte nicht auf diese Nachricht.
-        </p>
-      </div>
-    `,
-  };
+  tenantName: string; firstName: string; lastName: string; memberNo: number;
+  fee: string; interval: string; paymentMethod: string;
+}) {
+  return renderTemplate(EMAIL_DEFAULTS.member_welcome, {
+    vereinsname: params.tenantName, vorname: params.firstName, nachname: params.lastName,
+    mitgliedsnummer: String(params.memberNo), beitrag: params.fee, intervall: params.interval, zahlungsweise: params.paymentMethod,
+  });
 }
 
 export function buildResetEmail(link: string): { subject: string; html: string } {

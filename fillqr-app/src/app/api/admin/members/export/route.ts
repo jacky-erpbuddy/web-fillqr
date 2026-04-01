@@ -34,23 +34,45 @@ export async function GET(req: NextRequest) {
       departments: {
         include: { department: { select: { name: true } } },
       },
+      sepaMandate: { select: { iban: true } },
     },
   });
 
   // CSV mit BOM fuer Excel
   const BOM = "\uFEFF";
-  const header = "Name;E-Mail;Status;Mitgliedstyp;Beitrag;Sparten;Eintrittsdatum;Erstellt";
+  const header = "Mitgliedsnr;Name;E-Mail;Telefon;Status;Mitgliedstyp;Beitrag;Sparten;Zahlungsart;Zahlungsintervall;IBAN;Fotoerlaubnis;Newsletter;Ehrenamt;Spende;Geworben von;Eintrittsdatum;Erstellt";
   const rows = members.map((m) => {
     const name = `${m.firstName} ${m.lastName}`;
     const typ = m.membershipType?.name ?? "";
     const fee = m.membershipType ? Number(m.membershipType.fee).toFixed(2) : "";
     const sparten = m.departments.map((d) => d.department.name).join(", ");
-    const entry = m.entryDate
-      ? m.entryDate.toLocaleDateString("de-DE")
-      : "";
+    const entry = m.entryDate ? m.entryDate.toLocaleDateString("de-DE") : "";
     const created = m.createdAt.toLocaleDateString("de-DE");
+    // IBAN maskiert (Finding 2: DSGVO)
+    const iban = m.sepaMandate?.iban
+      ? m.sepaMandate.iban.slice(0, 4) + "****" + m.sepaMandate.iban.slice(-4)
+      : "";
 
-    return [name, m.email, m.status, typ, fee, sparten, entry, created]
+    return [
+      m.memberNo?.toString() ?? "",
+      name,
+      m.email,
+      m.phone ?? "",
+      m.status,
+      typ,
+      fee,
+      sparten,
+      m.paymentMethod ?? "",
+      m.paymentInterval ?? "",
+      iban,
+      m.photoConsent != null ? (m.photoConsent ? "Ja" : "Nein") : "",
+      m.newsletter != null ? (m.newsletter ? "Ja" : "Nein") : "",
+      m.volunteer != null ? (m.volunteer ? "Ja" : "Nein") : "",
+      m.donation != null ? Number(m.donation).toFixed(2) : "",
+      m.referredBy ?? "",
+      entry,
+      created,
+    ]
       .map((v) => `"${(v ?? "").replace(/"/g, '""')}"`)
       .join(";");
   });

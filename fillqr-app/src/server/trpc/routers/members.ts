@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { router, TRPCError } from "../init";
 import { protectedProcedure } from "../procedures";
-import { sendMail, buildWelcomeEmail } from "@/lib/email";
+import { sendMail, buildWelcomeEmail, sendTemplatedMail } from "@/lib/email";
 
 /** Erlaubte Status-Transitions */
 const TRANSITIONS: Record<string, string[]> = {
@@ -152,6 +152,7 @@ export const membersRouter = router({
       z.object({
         id: z.string(),
         newStatus: z.enum(["eingegangen", "in_pruefung", "angenommen", "abgelehnt", "gekuendigt"]),
+        reason: z.string().optional(), // Ablehnungsgrund (nur bei abgelehnt)
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -306,12 +307,26 @@ export const membersRouter = router({
         return updated;
       }
 
-      return ctx.prisma.member.update({
+      const result = await ctx.prisma.member.update({
         where: { id: input.id },
         data: {
           status: input.newStatus,
           statusHistory: history,
         },
+        include: { tenant: { select: { name: true } } },
       });
+
+      // Ablehnungsmail senden (AP-24)
+      if (input.newStatus === "abgelehnt") {
+        sendTemplatedMail(ctx.prisma, ctx.user.tenantId, "member_reject", result.email, {
+          vereinsname: result.tenant.name,
+          vorname: result.firstName,
+          nachname: result.lastName,
+          mitgliedsname: `${result.firstName} ${result.lastName}`,
+          ablehnungsgrund: input.reason ? `Begruendung: ${input.reason}` : "",
+        }).catch((err) => console.error("Ablehnungsmail fehlgeschlagen:", err));
+      }
+
+      return result;
     }),
 });
