@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { VereinsBuddySettings } from "@/lib/settings-schema";
+import { EMAIL_DEFAULTS } from "@/lib/email-defaults";
 
 // ─── Types ───
 
@@ -734,6 +736,13 @@ function OptionaleFelderTab({ settings }: { settings: VereinsBuddySettings }) {
       <button onClick={handleSave} disabled={saving} className={btnPrimary}>
         {saving ? "Speichert..." : "Speichern"}
       </button>
+
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Datenimport</h3>
+        <Link href="/admin/einstellungen/import" className="text-sm text-blue-600 hover:text-blue-800">
+          CSV-Import fuer Bestandsmitglieder →
+        </Link>
+      </div>
     </div>
   );
 }
@@ -917,7 +926,10 @@ function EmailVorlagenTab() {
     })();
   }, []);
 
-  function getT(key: string) { return templates[key] ?? { subject: "", body: "" }; }
+  function getT(key: string) {
+    return templates[key] ?? EMAIL_DEFAULTS[key] ?? { subject: "", body: "" };
+  }
+  function isCustom(key: string) { return !!templates[key]; }
   function setT(key: string, field: "subject" | "body", value: string) {
     setTemplates((p) => ({ ...p, [key]: { ...getT(key), [field]: value } }));
   }
@@ -953,7 +965,11 @@ function EmailVorlagenTab() {
         const t = getT(key);
         return (
           <div key={key} className="border border-gray-200 rounded-md p-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">{label}</h3>
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">{label}</h3>
+              {!isCustom(key) && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">Standard</span>}
+              {isCustom(key) && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">Angepasst</span>}
+            </div>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Betreff</label>

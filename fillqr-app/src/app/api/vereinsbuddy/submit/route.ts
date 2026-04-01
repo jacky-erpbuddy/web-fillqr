@@ -73,6 +73,7 @@ const submitSchema = z.object({
     lastName: z.string().min(1),
     birthdate: z.string().min(1),
     departmentIds: z.array(z.string()).default([]),
+    photoPath: z.string().optional(),
   })).optional(),
 });
 
@@ -242,6 +243,7 @@ export async function POST(req: NextRequest) {
             membershipTypeId: data.membershipTypeId,
             paymentInterval: data.paymentInterval,
             paymentMethod: data.paymentMethod || null,
+            photoPath: fm.photoPath || null,
             familyGroupId: groupId,
             familyHead: false,
             status: "eingegangen",

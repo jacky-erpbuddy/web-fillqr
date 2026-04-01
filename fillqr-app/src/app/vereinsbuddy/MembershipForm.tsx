@@ -107,6 +107,8 @@ export default function MembershipForm({
     lastName: string;
     birthdate: string;
     departmentIds: string[];
+    photoPath?: string;
+    photoPreview?: string;
   };
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
 
@@ -199,16 +201,26 @@ export default function MembershipForm({
     const typ = membershipTypes.find((t) => t.id === selectedTypeId);
     if (!typ) return null;
 
-    const spartenZusatz = departments
+    // Head-Sparten
+    const headSpartenZusatz = departments
       .filter((d) => selectedDepts.includes(d.id))
       .reduce((sum, d) => sum + d.extraFee, 0);
 
-    const monatlich = typ.fee + spartenZusatz;
+    // Familienmitglieder-Sparten
+    const familieSpartenZusatz = familyMembers.reduce((sum, fm) => {
+      return sum + departments
+        .filter((d) => fm.departmentIds.includes(d.id))
+        .reduce((s, d) => s + d.extraFee, 0);
+    }, 0);
+
+    // Gesamtbeitrag: Grundbeitrag * (1 + Familienmitglieder) + alle Spartenszusaetze
+    const personenAnzahl = 1 + familyMembers.length;
+    const monatlich = typ.fee * personenAnzahl + headSpartenZusatz + familieSpartenZusatz;
     const faktor = intervallFaktoren[selectedInterval] ?? 0;
     const summe = faktor > 0 ? monatlich * faktor : null;
 
-    return { monatlich, summe, faktor, intervall: selectedInterval };
-  }, [selectedTypeId, selectedDepts, selectedInterval, membershipTypes, departments]);
+    return { monatlich, summe, faktor, intervall: selectedInterval, personenAnzahl };
+  }, [selectedTypeId, selectedDepts, selectedInterval, membershipTypes, departments, familyMembers]);
 
   // ─── Submit ───
 
@@ -238,9 +250,15 @@ export default function MembershipForm({
     // Foto
     if (photoPath) body.photoPath = photoPath;
 
-    // Familienmitglieder
+    // Familienmitglieder (mit photoPath)
     if (familyMembers.length > 0) {
-      body.familyMembers = familyMembers;
+      body.familyMembers = familyMembers.map((fm) => ({
+        firstName: fm.firstName,
+        lastName: fm.lastName,
+        birthdate: fm.birthdate,
+        departmentIds: fm.departmentIds,
+        photoPath: fm.photoPath,
+      }));
     }
 
     // Zahlungsart
@@ -312,7 +330,7 @@ export default function MembershipForm({
 
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="w-full max-w-lg mx-auto">
+      <div className="w-full max-w-lg lg:max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">{tenantName}</h1>
@@ -790,6 +808,37 @@ export default function MembershipForm({
                       </div>
                     </div>
                   )}
+                  {/* Foto pro Familienmitglied */}
+                  {settings.fotoUpload !== "aus" && (
+                    <div className="mt-3">
+                      <label className={labelCls}>Foto {settings.fotoUpload === "pflicht" ? "*" : "(optional)"}</label>
+                      {fm.photoPreview && (
+                        <img src={fm.photoPreview} alt="Vorschau" className="h-20 w-20 object-cover rounded-md border mb-2" />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png;capture=camera"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png"].includes(file.type)) return;
+                          const fd = new FormData();
+                          fd.append("file", file);
+                          fd.append("turnstileToken", turnstileToken ?? "");
+                          try {
+                            const res = await fetch("/api/vereinsbuddy/upload-photo", { method: "POST", body: fd });
+                            const data = await res.json();
+                            if (res.ok) {
+                              setFamilyMembers((prev) => prev.map((m, i) =>
+                                i === idx ? { ...m, photoPath: data.path, photoPreview: URL.createObjectURL(file) } : m
+                              ));
+                            }
+                          } catch { /* ignore */ }
+                        }}
+                        className="text-sm text-gray-500"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -811,7 +860,7 @@ export default function MembershipForm({
             {beitrag ? (
               <div className="space-y-1 text-sm text-blue-800">
                 <p>
-                  Monatsbeitrag: <strong>{eur.format(beitrag.monatlich)}</strong>
+                  Monatsbeitrag{beitrag.personenAnzahl > 1 ? ` (${beitrag.personenAnzahl} Personen)` : ""}: <strong>{eur.format(beitrag.monatlich)}</strong>
                 </p>
                 {beitrag.summe !== null ? (
                   <p>

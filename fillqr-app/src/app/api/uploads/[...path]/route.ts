@@ -22,12 +22,13 @@ export async function GET(
   const user = await requireAuth();
   const segments = (await params).path;
 
-  // Erwartetes Format: /api/uploads/{tenantId}/{filename}
-  if (segments.length !== 2) {
+  // Format: /api/uploads/{tenantId}/... (min 2 Segmente)
+  if (segments.length < 2) {
     return NextResponse.json({ error: "Ungueltig" }, { status: 400 });
   }
 
-  const [tenantId, fileName] = segments;
+  const tenantId = segments[0];
+  const subPath = segments.slice(1);
 
   // Tenant-Isolation: Nur eigene Dateien
   if (tenantId !== user.tenantId) {
@@ -35,11 +36,12 @@ export async function GET(
   }
 
   // Path Traversal verhindern
-  if (tenantId.includes("..") || fileName.includes("..")) {
+  if (segments.some((s) => s.includes(".."))) {
     return NextResponse.json({ error: "Ungueltig" }, { status: 400 });
   }
 
-  const filePath = path.join(process.cwd(), "data", "uploads", tenantId, fileName);
+  const fileName = subPath[subPath.length - 1];
+  const filePath = path.join(process.cwd(), "data", "uploads", tenantId, ...subPath);
 
   try {
     await stat(filePath);
