@@ -29,6 +29,7 @@ model Tenant {
   members         Member[]
   membershipTypes MembershipType[]
   departments     Department[]
+  sepaMandates    SepaMandate[]
 
   @@map("tbl_tenants")
 }
@@ -130,6 +131,11 @@ model Member {
   photoPath        String?   @map("photo_path")
   notes            String?
   statusHistory    Json?     @map("status_history")
+  photoConsent     Boolean?  @map("photo_consent")
+  newsletter       Boolean?
+  volunteer        Boolean?
+  donation         Decimal?
+  referredBy       String?   @map("referred_by")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt      @map("updated_at")
 
@@ -137,6 +143,7 @@ model Member {
   membershipType MembershipType?     @relation(fields: [membershipTypeId], references: [id], onDelete: SetNull)
   departments    MemberDepartment[]
   guardians      Guardian[]
+  sepaMandate    SepaMandate?
 
   @@unique([tenantId, memberNo])
   @@index([tenantId, status])
@@ -159,6 +166,25 @@ model Guardian {
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@map("tbl_guardians")
+}
+
+model SepaMandate {
+  id            String    @id @default(cuid())
+  memberId      String    @unique @map("member_id")
+  tenantId      String    @map("tenant_id")
+  accountHolder String    @map("account_holder")
+  iban          String
+  bic           String?
+  mandateRef    String    @unique @map("mandate_ref")
+  status        String    @default("active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastUsed      DateTime? @map("last_used")
+
+  member Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tbl_sepa_mandates")
 }
 
 model MemberDepartment {

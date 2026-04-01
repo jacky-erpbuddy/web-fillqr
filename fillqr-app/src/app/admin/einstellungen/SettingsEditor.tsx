@@ -583,7 +583,54 @@ function ZahlungsoptionenTab({ settings }: { settings: VereinsBuddySettings }) {
           />
           <span className="text-sm">SEPA-Lastschrift als Zahlungsmethode anbieten</span>
         </label>
-        <p className="text-xs text-gray-400 ml-6 mt-1">Details werden in einem spaeteren Update konfigurierbar.</p>
+        {s.sepa_aktiv && (
+          <div className="ml-6 mt-3 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Glaeubiger-Identifikationsnummer</label>
+              <input
+                type="text"
+                value={s.sepa_glaeubiger_id}
+                onChange={(e) => setS((p) => ({ ...p, sepa_glaeubiger_id: e.target.value }))}
+                placeholder="DE98ZZZ09999999999"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pre-Notification Frist (Tage)</label>
+              <input
+                type="number"
+                value={s.sepa_pre_notification}
+                onChange={(e) => setS((p) => ({ ...p, sepa_pre_notification: Number(e.target.value) || 14 }))}
+                min="1"
+                className={inputCls + " w-24"}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Weitere Zahlungsarten</h3>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={s.zahlungsarten.ueberweisung}
+              onChange={() => setS((p) => ({ ...p, zahlungsarten: { ...p.zahlungsarten, ueberweisung: !p.zahlungsarten.ueberweisung } }))}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">Ueberweisung</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={s.zahlungsarten.bar}
+              onChange={() => setS((p) => ({ ...p, zahlungsarten: { ...p.zahlungsarten, bar: !p.zahlungsarten.bar } }))}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">Barzahlung</span>
+          </label>
+        </div>
       </div>
 
       <button onClick={handleSave} disabled={saving} className={btnPrimary}>
@@ -637,6 +684,26 @@ function OptionaleFelderTab({ settings }: { settings: VereinsBuddySettings }) {
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={s.optionale_felder.notfallkontakt} onChange={() => toggleField("notfallkontakt")} className="rounded border-gray-300" />
           <span className="text-sm">Notfallkontakt</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={s.optionale_felder.fotoerlaubnis} onChange={() => toggleField("fotoerlaubnis")} className="rounded border-gray-300" />
+          <span className="text-sm">Fotoerlaubnis — Einwilligung zur Veroeffentlichung von Fotos</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={s.optionale_felder.newsletter} onChange={() => toggleField("newsletter")} className="rounded border-gray-300" />
+          <span className="text-sm">Newsletter — Vereinsnewsletter per E-Mail</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={s.optionale_felder.ehrenamt} onChange={() => toggleField("ehrenamt")} className="rounded border-gray-300" />
+          <span className="text-sm">Ehrenamt — Interesse an ehrenamtlicher Mitarbeit</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={s.optionale_felder.spende} onChange={() => toggleField("spende")} className="rounded border-gray-300" />
+          <span className="text-sm">Spende — Freiwilliger Foerderbeitrag</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={s.optionale_felder.mitglied_wirbt} onChange={() => toggleField("mitglied_wirbt")} className="rounded border-gray-300" />
+          <span className="text-sm">Mitglied wirbt Mitglied — Werbername fuer Praemien</span>
         </label>
       </div>
       <button onClick={handleSave} disabled={saving} className={btnPrimary}>

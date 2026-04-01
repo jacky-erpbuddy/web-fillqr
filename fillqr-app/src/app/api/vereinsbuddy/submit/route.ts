@@ -2,12 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { validateTurnstile } from "@/lib/turnstile";
+import { parseSettings } from "@/lib/settings-schema";
 import {
   sendMail,
   buildMemberConfirmEmail,
   buildMemberNotifyEmail,
 } from "@/lib/email";
+
+/** IBAN-Pruefziffer Modulo 97 (nur DE) */
+function validateIbanChecksum(iban: string): boolean {
+  const cleaned = iban.replace(/\s/g, "").toUpperCase();
+  if (!/^DE\d{20}$/.test(cleaned)) return false;
+  // Erste 4 Zeichen ans Ende
+  const rearranged = cleaned.slice(4) + cleaned.slice(0, 4);
+  // Buchstaben → Zahlen (A=10, B=11, ..., Z=35)
+  const numeric = rearranged.replace(/[A-Z]/g, (ch) => String(ch.charCodeAt(0) - 55));
+  // Modulo 97 (chunk-basiert, kein BigInt noetig)
+  let remainder = 0;
+  for (let i = 0; i < numeric.length; i++) {
+    remainder = (remainder * 10 + parseInt(numeric[i], 10)) % 97;
+  }
+  return remainder === 1;
+}
+
+const sepaSchema = z.object({
+  accountHolder: z.string().min(1, "Kontoinhaber ist Pflicht"),
+  iban: z.string().min(1, "IBAN ist Pflicht"),
+  bic: z.string().optional(),
+  mandateConsent: z.literal(true, {
+    message: "SEPA-Mandat muss erteilt werden",
+  }),
+});
 
 const guardianSchema = z.object({
   firstName: z.string().min(1, "Vorname Erziehungsberechtigte/r ist Pflicht"),
@@ -37,6 +64,13 @@ const submitSchema = z.object({
   entryDate: z.string().optional(),
   departmentIds: z.array(z.string()).default([]),
   guardian: guardianSchema.optional(),
+  paymentMethod: z.enum(["sepa", "ueberweisung", "bar"]).optional(),
+  sepa: sepaSchema.optional(),
+  photoConsent: z.boolean().optional(),
+  newsletter: z.boolean().optional(),
+  volunteer: z.boolean().optional(),
+  donation: z.number().min(0).optional(),
+  referredBy: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -113,9 +147,40 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 5c. Zahlungsart gegen Settings pruefen (Finding 3)
+  if (data.paymentMethod) {
+    const settings = parseSettings(tenantApp.settingsJson);
+    const allowed: string[] = [];
+    if (settings.sepa_aktiv) allowed.push("sepa");
+    if (settings.zahlungsarten.ueberweisung) allowed.push("ueberweisung");
+    if (settings.zahlungsarten.bar) allowed.push("bar");
+    if (!allowed.includes(data.paymentMethod)) {
+      return NextResponse.json(
+        { error: "Gewaehlte Zahlungsart ist nicht aktiviert" },
+        { status: 400 },
+      );
+    }
+  }
+
+  // 5d. SEPA-Validierung: IBAN Pruefziffer (Server-seitig)
+  if (data.paymentMethod === "sepa") {
+    if (!data.sepa) {
+      return NextResponse.json(
+        { error: "SEPA-Daten sind bei Lastschrift Pflicht" },
+        { status: 400 },
+      );
+    }
+    if (!validateIbanChecksum(data.sepa.iban)) {
+      return NextResponse.json(
+        { error: "IBAN ist ungueltig (Pruefziffer fehlerhaft)" },
+        { status: 400 },
+      );
+    }
+  }
+
   const entryDate = data.entryDate ? new Date(data.entryDate) : null;
 
-  // 6. Prisma Transaction: Member + MemberDepartments
+  // 6. Prisma Transaction: Member + MemberDepartments + Guardian + SepaMandate
   const member = await prisma.$transaction(async (tx) => {
     const newMember = await tx.member.create({
       data: {
@@ -131,6 +196,12 @@ export async function POST(req: NextRequest) {
         entryDate,
         membershipTypeId: data.membershipTypeId,
         paymentInterval: data.paymentInterval,
+        paymentMethod: data.paymentMethod || null,
+        photoConsent: data.photoConsent ?? null,
+        newsletter: data.newsletter ?? null,
+        volunteer: data.volunteer ?? null,
+        donation: data.donation ?? null,
+        referredBy: data.referredBy || null,
         status: "eingegangen",
       },
     });
@@ -159,6 +230,41 @@ export async function POST(req: NextRequest) {
           city: data.guardian.city || null,
         },
       });
+    }
+
+    // SEPA-Mandat erstellen (mit Retry bei UNIQUE Conflict — Finding 2)
+    if (data.paymentMethod === "sepa" && data.sepa) {
+      let mandateCreated = false;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const count = await tx.sepaMandate.count({ where: { tenantId: tenant.id } });
+          const mandateRef = `FILLQR-${tenant.id.slice(0, 6).toUpperCase()}-${count + 1}`;
+          await tx.sepaMandate.create({
+            data: {
+              memberId: newMember.id,
+              tenantId: tenant.id,
+              accountHolder: data.sepa.accountHolder,
+              iban: data.sepa.iban.replace(/\s/g, "").toUpperCase(),
+              bic: data.sepa.bic || null,
+              mandateRef,
+            },
+          });
+          mandateCreated = true;
+          break;
+        } catch (err) {
+          if (
+            err instanceof Prisma.PrismaClientKnownRequestError &&
+            err.code === "P2002" &&
+            attempt < 2
+          ) {
+            continue;
+          }
+          throw err;
+        }
+      }
+      if (!mandateCreated) {
+        throw new Error("Mandatsreferenz konnte nicht generiert werden");
+      }
     }
 
     return newMember;

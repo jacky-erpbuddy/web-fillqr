@@ -201,6 +201,18 @@ Bei Annahme: Mitgliedsnummer vergeben (MAX+1, UNIQUE Constraint, Retry bei Race 
 
 Formular: Abschnitt 3 (Erziehungsberechtigte) erscheint automatisch bei Alter < 18. Server-Validierung: Guardian Pflicht bei Minderjaehrigen.
 
+### SEPA + Zusatzoptionen (S2-AP20 + S2-AP21, 2026-04-01)
+
+| Tabelle | Zweck |
+|---------|-------|
+| tbl_sepa_mandates | SEPA-Mandate (member_id, tenant_id, iban, bic, mandate_ref UNIQUE, status) |
+
+Member-Felder: +photoConsent, +newsletter, +volunteer, +donation, +referredBy.
+
+Settings-Erweiterung: sepa_glaeubiger_id, sepa_pre_notification (Default 14), zahlungsarten (ueberweisung/bar Toggles), optionale_felder (+fotoerlaubnis, +newsletter, +ehrenamt, +spende, +mitglied_wirbt).
+
+Formular: Abschnitt 4 (Zahlungsart Radio), Abschnitt 5 (SEPA conditional: Kontoinhaber, IBAN mit Client+Server-Validierung, BIC, Mandatstext, Consent), Abschnitt 6 (Zusatzoptionen settings-gesteuert). IBAN: nur DE-Format, Modulo-97 Pruefziffer server-seitig. Mandatsreferenz: FILLQR-{tenantId kurz}-{laufende_nr}, UNIQUE + Retry.
+
 ### Admin-Einstellungen (S1-AP11, 2026-03-31)
 
 | Route | Zweck |

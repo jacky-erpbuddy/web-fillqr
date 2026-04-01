@@ -33,6 +33,7 @@ export default async function MemberDetailPage({
         include: { department: { select: { name: true, extraFee: true } } },
       },
       guardians: true,
+      sepaMandate: true,
       tenant: {
         select: {
           name: true,
@@ -125,6 +126,7 @@ export default async function MemberDetailPage({
               }
             />
             <Row label="Zahlungsintervall" value={member.paymentInterval} />
+            <Row label="Zahlungsart" value={member.paymentMethod} />
             <Row
               label="Eintrittsdatum"
               value={member.entryDate?.toLocaleDateString("de-DE")}
@@ -134,6 +136,38 @@ export default async function MemberDetailPage({
           </dl>
         </div>
       </div>
+
+      {/* SEPA-Mandat */}
+      {member.sepaMandate && (
+        <div className="mt-6 bg-white rounded-lg border border-blue-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">
+            SEPA-Lastschriftmandat
+          </h2>
+          <dl className="space-y-2 text-sm">
+            <Row label="Kontoinhaber" value={member.sepaMandate.accountHolder} />
+            <Row label="IBAN" value={member.sepaMandate.iban} />
+            <Row label="BIC" value={member.sepaMandate.bic} />
+            <Row label="Mandatsreferenz" value={member.sepaMandate.mandateRef} />
+            <Row label="Status" value={member.sepaMandate.status} />
+          </dl>
+        </div>
+      )}
+
+      {/* Zusatzoptionen */}
+      {(member.photoConsent != null || member.newsletter != null || member.volunteer != null || member.donation != null || member.referredBy) && (
+        <div className="mt-6 bg-white rounded-lg border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">
+            Zusatzoptionen
+          </h2>
+          <dl className="space-y-2 text-sm">
+            {member.photoConsent != null && <Row label="Fotoerlaubnis" value={member.photoConsent ? "Ja" : "Nein"} />}
+            {member.newsletter != null && <Row label="Newsletter" value={member.newsletter ? "Ja" : "Nein"} />}
+            {member.volunteer != null && <Row label="Ehrenamt" value={member.volunteer ? "Ja" : "Nein"} />}
+            {member.donation != null && <Row label="Spende" value={`${Number(member.donation).toFixed(2)} EUR`} />}
+            {member.referredBy && <Row label="Geworben von" value={member.referredBy} />}
+          </dl>
+        </div>
+      )}
 
       {/* Erziehungsberechtigte */}
       {member.guardians.length > 0 && (

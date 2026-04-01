@@ -15,12 +15,25 @@ export const vereinsbuddySettingsSchema = z.object({
     })
     .default({ aktiv: false, betrag: 0 }),
   sepa_aktiv: z.boolean().default(false),
+  sepa_glaeubiger_id: z.string().default(""),
+  sepa_pre_notification: z.number().min(1).default(14),
+  zahlungsarten: z
+    .object({
+      ueberweisung: z.boolean().default(true),
+      bar: z.boolean().default(false),
+    })
+    .default({ ueberweisung: true, bar: false }),
   optionale_felder: z
     .object({
       telefon: z.boolean().default(false),
       notfallkontakt: z.boolean().default(false),
+      fotoerlaubnis: z.boolean().default(false),
+      newsletter: z.boolean().default(false),
+      ehrenamt: z.boolean().default(false),
+      spende: z.boolean().default(false),
+      mitglied_wirbt: z.boolean().default(false),
     })
-    .default({ telefon: false, notfallkontakt: false }),
+    .default({ telefon: false, notfallkontakt: false, fotoerlaubnis: false, newsletter: false, ehrenamt: false, spende: false, mitglied_wirbt: false }),
   satzung_url: z.string().default(""),
   satzung_typ: z.enum(["url", "upload"]).default("url"),
   beitragsordnung_url: z.string().default(""),
@@ -35,7 +48,10 @@ export const DEFAULT_SETTINGS: VereinsBuddySettings = {
   zahlungsintervalle: [],
   aufnahmegebuehr: { aktiv: false, betrag: 0 },
   sepa_aktiv: false,
-  optionale_felder: { telefon: false, notfallkontakt: false },
+  sepa_glaeubiger_id: "",
+  sepa_pre_notification: 14,
+  zahlungsarten: { ueberweisung: true, bar: false },
+  optionale_felder: { telefon: false, notfallkontakt: false, fotoerlaubnis: false, newsletter: false, ehrenamt: false, spende: false, mitglied_wirbt: false },
   satzung_url: "",
   satzung_typ: "url",
   beitragsordnung_url: "",

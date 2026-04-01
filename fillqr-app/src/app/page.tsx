@@ -84,6 +84,15 @@ export default async function Home() {
           satzungUrl: settings.satzung_url,
           beitragsordnungUrl: settings.beitragsordnung_url,
           impressum: settings.impressum,
+          sepaAktiv: settings.sepa_aktiv,
+          sepaGlaeubigerId: settings.sepa_glaeubiger_id,
+          ueberweisungAktiv: settings.zahlungsarten.ueberweisung,
+          barAktiv: settings.zahlungsarten.bar,
+          fotoerlaubnis: settings.optionale_felder.fotoerlaubnis,
+          newsletter: settings.optionale_felder.newsletter,
+          ehrenamt: settings.optionale_felder.ehrenamt,
+          spende: settings.optionale_felder.spende,
+          mitgliedWirbt: settings.optionale_felder.mitglied_wirbt,
         }}
       />
     );

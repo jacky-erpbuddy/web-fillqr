@@ -25,6 +25,15 @@ type FormSettings = {
   satzungUrl: string;
   beitragsordnungUrl: string;
   impressum: string;
+  sepaAktiv: boolean;
+  sepaGlaeubigerId: string;
+  ueberweisungAktiv: boolean;
+  barAktiv: boolean;
+  fotoerlaubnis: boolean;
+  newsletter: boolean;
+  ehrenamt: boolean;
+  spende: boolean;
+  mitgliedWirbt: boolean;
 };
 
 type Props = {
@@ -85,6 +94,27 @@ export default function MembershipForm({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [birthdate, setBirthdate] = useState("");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
+  const [ibanError, setIbanError] = useState<string | null>(null);
+
+  // Verfügbare Zahlungsarten aus Settings
+  const availablePaymentMethods = useMemo(() => {
+    const methods: { value: string; label: string }[] = [];
+    if (settings.sepaAktiv) methods.push({ value: "sepa", label: "SEPA-Lastschrift" });
+    if (settings.ueberweisungAktiv) methods.push({ value: "ueberweisung", label: "Ueberweisung" });
+    if (settings.barAktiv) methods.push({ value: "bar", label: "Barzahlung" });
+    return methods;
+  }, [settings]);
+
+  function validateIban(value: string): boolean {
+    const cleaned = value.replace(/\s/g, "").toUpperCase();
+    if (!/^DE\d{20}$/.test(cleaned)) {
+      setIbanError("IBAN muss mit DE beginnen und 22 Zeichen lang sein");
+      return false;
+    }
+    setIbanError(null);
+    return true;
+  }
 
   const isMinor = useMemo(() => {
     if (!birthdate) return false;
@@ -145,6 +175,37 @@ export default function MembershipForm({
       entryDate: (form.get("entryDate") as string) || undefined,
       departmentIds: selectedDepts,
     };
+
+    // Zahlungsart
+    body.paymentMethod = selectedPaymentMethod;
+
+    // SEPA-Daten
+    if (selectedPaymentMethod === "sepa") {
+      const ibanRaw = (form.get("iban") as string) || "";
+      if (!validateIban(ibanRaw)) {
+        setSubmitting(false);
+        return;
+      }
+      body.sepa = {
+        accountHolder: form.get("accountHolder") as string,
+        iban: ibanRaw.replace(/\s/g, "").toUpperCase(),
+        bic: (form.get("bic") as string) || undefined,
+        mandateConsent: !!form.get("mandateConsent"),
+      };
+    }
+
+    // Zusatzoptionen
+    if (settings.fotoerlaubnis) body.photoConsent = !!form.get("photoConsent");
+    if (settings.newsletter) body.newsletter = !!form.get("newsletter");
+    if (settings.ehrenamt) body.volunteer = !!form.get("volunteer");
+    if (settings.spende) {
+      const val = parseFloat((form.get("donation") as string) || "0");
+      if (val > 0) body.donation = val;
+    }
+    if (settings.mitgliedWirbt) {
+      const ref = (form.get("referredBy") as string) || "";
+      if (ref) body.referredBy = ref;
+    }
 
     // Guardian-Daten bei Minderjaehrigen
     if (isMinor) {
@@ -595,6 +656,180 @@ export default function MembershipForm({
             )}
           </div>
 
+          {/* ─── AP-20: Abschnitt 4 — Zahlungsart ─── */}
+          {availablePaymentMethods.length > 0 && (
+            <fieldset>
+              <legend className="text-lg font-semibold text-gray-900 mb-4">
+                Zahlungsart
+              </legend>
+              <div className="space-y-2">
+                {availablePaymentMethods.map((m) => (
+                  <label key={m.value} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="paymentMethodRadio"
+                      value={m.value}
+                      checked={selectedPaymentMethod === m.value}
+                      onChange={() => setSelectedPaymentMethod(m.value)}
+                      required
+                      className="border-gray-300"
+                    />
+                    <span className="text-sm">{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          {/* ─── AP-20: Abschnitt 5 — SEPA-Lastschriftmandat ─── */}
+          {selectedPaymentMethod === "sepa" && (
+            <fieldset className="border border-blue-200 bg-blue-50 rounded-md p-4">
+              <legend className="text-lg font-semibold text-gray-900 mb-4">
+                SEPA-Lastschriftmandat
+              </legend>
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="accountHolder" className={labelCls}>
+                    Kontoinhaber *
+                  </label>
+                  <input
+                    type="text"
+                    id="accountHolder"
+                    name="accountHolder"
+                    required
+                    className={inputCls}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="iban" className={labelCls}>
+                    IBAN *
+                  </label>
+                  <input
+                    type="text"
+                    id="iban"
+                    name="iban"
+                    required
+                    placeholder="DE89 3704 0044 0532 0130 00"
+                    onBlur={(e) => validateIban(e.target.value)}
+                    className={inputCls}
+                  />
+                  {ibanError && (
+                    <p className="text-sm text-red-600 mt-1">{ibanError}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="bic" className={labelCls}>
+                    BIC (optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="bic"
+                    name="bic"
+                    className={inputCls}
+                  />
+                </div>
+
+                {/* Mandatstext (readonly) */}
+                <div className="bg-white border border-gray-200 rounded-md p-3 text-xs text-gray-600">
+                  <p>
+                    Ich ermaechtige {tenantName}
+                    {settings.sepaGlaeubigerId && ` (Glaeubiger-Identifikationsnummer: ${settings.sepaGlaeubigerId})`}
+                    , Zahlungen von meinem Konto mittels Lastschrift einzuziehen.
+                    Zugleich weise ich mein Kreditinstitut an, die von {tenantName} auf
+                    mein Konto gezogenen Lastschriften einzuloesen.
+                  </p>
+                  <p className="mt-2 text-gray-500">
+                    Hinweis: Ich kann innerhalb von acht Wochen, beginnend mit dem
+                    Belastungsdatum, die Erstattung des belasteten Betrages verlangen.
+                  </p>
+                </div>
+
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    name="mandateConsent"
+                    required
+                    className="rounded border-gray-300 mt-0.5"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Ich habe das SEPA-Lastschriftmandat gelesen und erteile es hiermit. *
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+          )}
+
+          {/* ─── AP-21: Abschnitt 6 — Zusatzoptionen ─── */}
+          {(settings.fotoerlaubnis || settings.newsletter || settings.ehrenamt || settings.spende || settings.mitgliedWirbt) && (
+            <fieldset>
+              <legend className="text-lg font-semibold text-gray-900 mb-4">
+                Zusatzoptionen
+              </legend>
+              <div className="space-y-4">
+                {settings.fotoerlaubnis && (
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" name="photoConsent" className="rounded border-gray-300 mt-0.5" />
+                    <span className="text-sm text-gray-700">
+                      Ich bin damit einverstanden, dass Fotos bei Vereinsveranstaltungen gemacht und veroeffentlicht werden duerfen.
+                    </span>
+                  </label>
+                )}
+                {settings.newsletter && (
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" name="newsletter" className="rounded border-gray-300 mt-0.5" />
+                    <span className="text-sm text-gray-700">
+                      Ich moechte den Vereinsnewsletter per E-Mail erhalten.
+                    </span>
+                  </label>
+                )}
+                {settings.ehrenamt && (
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" name="volunteer" className="rounded border-gray-300 mt-0.5" />
+                    <span className="text-sm text-gray-700">
+                      Ich habe Interesse an ehrenamtlicher Mitarbeit.
+                    </span>
+                  </label>
+                )}
+                {settings.spende && (
+                  <div>
+                    <label htmlFor="donation" className={labelCls}>
+                      Ich moechte zusaetzlich spenden (freiwillig)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        id="donation"
+                        name="donation"
+                        min="0"
+                        step="0.01"
+                        placeholder="0,00"
+                        className={inputCls + " w-32"}
+                      />
+                      <span className="text-sm text-gray-500">EUR</span>
+                    </div>
+                  </div>
+                )}
+                {settings.mitgliedWirbt && (
+                  <div>
+                    <label htmlFor="referredBy" className={labelCls}>
+                      Wer hat dich geworben?
+                    </label>
+                    <input
+                      type="text"
+                      id="referredBy"
+                      name="referredBy"
+                      placeholder="Name des werbenden Mitglieds"
+                      className={inputCls}
+                    />
+                  </div>
+                )}
+              </div>
+            </fieldset>
+          )}
+
           {/* ─── AP-14: Abschnitt 7 — Rechtliches ─── */}
           <fieldset>
             <legend className="text-lg font-semibold text-gray-900 mb-4">
@@ -660,7 +895,8 @@ export default function MembershipForm({
                   </p>
                   <p>
                     <strong>Zweck:</strong> Mitgliederverwaltung,
-                    Beitragsabrechnung
+                    Beitragsabrechnung, ggf. Bankdaten (IBAN) fuer
+                    Lastschrifteinzug
                   </p>
                   <p>
                     <strong>Rechtsgrundlage:</strong> Vertrag (Art. 6 Abs. 1b
