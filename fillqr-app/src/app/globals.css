@@ -7,7 +7,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Dark Mode (System-Default) */
+/* fillQR Public Form — immer dunkles Theme (passend zu fillqr.de) */
+.fillqr-form .text-gray-900 { color: #f3f4f6 !important; }
+.fillqr-form .text-gray-700 { color: #d1d5db !important; }
+.fillqr-form .text-gray-600 { color: #d1d5db !important; }
+.fillqr-form .text-gray-500 { color: #9ca3af !important; }
+.fillqr-form .text-gray-400 { color: #6b7280 !important; }
+.fillqr-form .text-sm.font-semibold.text-blue-900 { color: #93c5fd !important; }
+.fillqr-form .text-blue-800 { color: #bfdbfe !important; }
+.fillqr-form .text-blue-600 { color: #60a5fa !important; }
+.fillqr-form .bg-blue-50 { background-color: rgba(30, 58, 95, 0.6) !important; border-color: rgba(59, 130, 246, 0.3) !important; }
+.fillqr-form .text-red-600 { color: #fca5a5 !important; }
+.fillqr-form .text-red-700 { color: #fca5a5 !important; }
+.fillqr-form .hover\:bg-gray-50:hover { background-color: rgba(255,255,255,0.05) !important; }
+.fillqr-form summary { color: #d1d5db !important; }
+.fillqr-form a { color: #5bcbde; }
+.fillqr-form a:hover { color: #7dd8e8; }
+.fillqr-form .bg-green-50 { background-color: rgba(13, 40, 24, 0.6) !important; }
+.fillqr-form .text-green-800 { color: #86efac !important; }
+
+/* Dark Mode (System-Default) — fuer Admin-Bereich */
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #111827;

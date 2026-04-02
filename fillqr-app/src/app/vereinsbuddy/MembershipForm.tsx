@@ -66,8 +66,9 @@ const intervallFaktoren: Record<string, number> = {
 };
 
 const inputCls =
-  "w-full px-3 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
-const labelCls = "block text-sm font-medium text-gray-700 mb-1";
+  "w-full px-3 py-2 text-base rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400"
+  + " bg-[#1a1a24] border border-[rgba(255,255,255,0.15)] text-white placeholder:text-gray-500";
+const labelCls = "block text-sm font-medium text-[#a0a0b0] mb-1";
 
 const eur = new Intl.NumberFormat("de-DE", {
   style: "currency",
@@ -331,25 +332,26 @@ export default function MembershipForm({
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 py-8 px-4">
+    <main className="fillqr-form min-h-screen py-8 px-4" style={{ backgroundColor: "#0a0a0f" }}>
       <div className="w-full max-w-lg lg:max-w-2xl mx-auto">
         {/* Demo-Banner */}
         {isDemo && (
-          <div className="bg-blue-600 text-white px-4 py-3 rounded-lg mb-4 text-sm">
-            <p className="font-medium">Dies ist eine Demo</p>
-            <p className="mt-1 opacity-90">Keine echten Daten eingeben. Formulardaten werden alle 12 Stunden geloescht.</p>
+          <div className="px-4 py-3 rounded-lg mb-4 text-sm" style={{ backgroundColor: "rgba(26, 26, 36, 0.8)", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+            <p className="font-medium" style={{ color: "#5bcbde" }}>Dies ist eine Demo</p>
+            <p className="mt-1" style={{ color: "#a0a0b0" }}>Keine echten Daten eingeben. Formulardaten werden alle 12 Stunden geloescht.</p>
           </div>
         )}
 
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">{tenantName}</h1>
-          <p className="text-gray-500 mt-1">Mitgliedsantrag</p>
+          <h1 className="text-2xl font-bold" style={{ background: "linear-gradient(135deg, #5bcbde 0%, #5cb85c 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{tenantName}</h1>
+          <p style={{ color: "#a0a0b0" }} className="mt-1">Mitgliedsantrag</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-8"
+          className="rounded-lg shadow-sm p-6 space-y-8"
+          style={{ backgroundColor: "rgba(26, 26, 36, 0.8)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
         >
           {/* ─── Abschnitt 1: Persoenliche Daten ─── */}
           <fieldset>
