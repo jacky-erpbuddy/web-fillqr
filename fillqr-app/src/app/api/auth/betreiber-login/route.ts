@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { getBetreiberSession } from "@/lib/betreiber-session";
+
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Vergleich trotzdem ausfuehren um konstante Zeit zu garantieren
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
@@ -29,7 +41,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (password !== expected) {
+  if (!safeCompare(password, expected)) {
     return NextResponse.redirect(
       `${baseUrl}/login?error=${encodeURIComponent("Ungültiges Passwort")}`,
       303,
