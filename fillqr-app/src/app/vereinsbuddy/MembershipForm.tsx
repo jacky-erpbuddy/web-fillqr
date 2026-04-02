@@ -335,8 +335,9 @@ export default function MembershipForm({
       <div className="w-full max-w-lg lg:max-w-2xl mx-auto">
         {/* Demo-Banner */}
         {isDemo && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-4 text-sm">
-            <span className="font-medium">Demo:</span> Dies ist eine Demo — keine echten Daten eingeben. Formulardaten werden alle 12 Stunden geloescht.
+          <div className="bg-blue-600 text-white px-4 py-3 rounded-lg mb-4 text-sm">
+            <p className="font-medium">Dies ist eine Demo</p>
+            <p className="mt-1 opacity-90">Keine echten Daten eingeben. Formulardaten werden alle 12 Stunden geloescht.</p>
           </div>
         )}
 

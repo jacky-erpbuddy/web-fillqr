@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
 import BarChart from "@/components/charts/BarChart";
 import LineChart from "@/components/charts/LineChart";
 
@@ -157,7 +157,7 @@ export default async function DashboardPage() {
         <div className="bg-white rounded-lg border border-gray-200 p-5 mt-8">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">QR-Code fuer Demo-Formular</h2>
           <div className="flex items-center gap-6">
-            <Image src="/qr-demo.png" alt="QR-Code demo.fillqr.de" width={150} height={150} />
+            <img src="/qr-demo.png" alt="QR-Code demo.fillqr.de" width={150} height={150} />
             <div className="space-y-2">
               <p className="text-sm text-gray-600">Scanne den QR-Code um das Demo-Formular zu oeffnen.</p>
               <div className="flex gap-3">

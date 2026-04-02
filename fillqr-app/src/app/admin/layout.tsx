@@ -84,8 +84,9 @@ export default async function AdminLayout({
       {/* Content */}
       <main className="flex-1 p-6 md:p-8">
         {isDemo && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-4 text-sm">
-            <span className="font-medium">Demo:</span> Demo-Ansicht — Aenderungen werden alle 12 Stunden zurueckgesetzt.
+          <div className="bg-blue-600 text-white px-4 py-3 rounded-lg mb-4 text-sm">
+            <p className="font-medium">Demo-Ansicht</p>
+            <p className="mt-1 opacity-90">Aenderungen werden alle 12 Stunden zurueckgesetzt.</p>
           </div>
         )}
         {children}
