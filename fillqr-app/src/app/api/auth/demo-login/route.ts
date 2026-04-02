@@ -48,8 +48,11 @@ export async function GET(request: NextRequest) {
 
   const redirectPath = request.nextUrl.searchParams.get("redirect") || "/admin/dashboard";
 
-  // Response zuerst erstellen, dann Session-Cookie direkt darauf schreiben
-  const response = NextResponse.redirect(new URL(redirectPath, request.url));
+  // Redirect-URL mit externem Host bauen (request.url ist intern 0.0.0.0:3000 hinter Caddy)
+  const host = headerList.get("host") || request.nextUrl.host;
+  const proto = headerList.get("x-forwarded-proto") || (request.nextUrl.protocol === "https:" ? "https" : "http");
+  const redirectUrl = new URL(redirectPath, `${proto}://${host}`);
+  const response = NextResponse.redirect(redirectUrl);
 
   const session = await getIronSession<SessionData>(request, response, {
     password: process.env.SESSION_SECRET!,
