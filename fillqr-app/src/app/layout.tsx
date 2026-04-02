@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "fillQR",
   description: "QR-Code-basierte Datenerfassung",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
