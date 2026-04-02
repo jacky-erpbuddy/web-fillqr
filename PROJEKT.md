@@ -548,7 +548,7 @@ Push nach main → Tests → Auto-Deploy (GitHub Webhook oder CI/CD).
 - SEPA-Feld: Test-IBAN (DE89370400440532013000) vorausgefuellt mit "(Test-IBAN)" Hinweis
 
 ### Demo-Reset Cron
-- System-Cron auf Server: `0 0,12 * * * docker exec fillqr-app node /app/scripts/reset-demo.js`
+- System-Cron auf Server: `0 0,12 * * * docker exec fillqr-app npx tsx /app/scripts/reset-demo.ts`
 - Loescht alle Member-Daten und seeded neu (alle 12h)
 - Demo-Notification: Bei Form-Submit an Jacky via n8n JV2_Notify (N8N_NOTIFY_URL)
 
