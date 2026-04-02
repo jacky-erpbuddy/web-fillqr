@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { getIronSession } from "iron-session";
+import { SessionData, SESSION_COOKIE_NAME } from "@/lib/session";
 
 /**
  * Auto-Login fuer Demo-Tenant (demo.fillqr.de).
  * Erstellt eine iron-session fuer den Demo-Admin-User und redirect zum Admin.
  * Nur aktiv wenn x-tenant-slug === "demo".
+ *
+ * Wichtig: Nutzt getIronSession(req, res) statt getSession() (cookies()),
+ * weil cookies() den Set-Cookie-Header NICHT auf manuell konstruierte
+ * NextResponse-Objekte uebertraegt → fuehrt sonst zu Redirect-Loop.
  */
 export async function GET(request: NextRequest) {
   const headerList = await headers();
@@ -41,23 +46,28 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // iron-session erstellen (Cookie-Domain = demo.fillqr.de, kein Wildcard)
-  const session = await getSession();
+  const redirectPath = request.nextUrl.searchParams.get("redirect") || "/admin/dashboard";
+
+  // Response zuerst erstellen, dann Session-Cookie direkt darauf schreiben
+  const response = NextResponse.redirect(new URL(redirectPath, request.url));
+
+  const session = await getIronSession<SessionData>(request, response, {
+    password: process.env.SESSION_SECRET!,
+    cookieName: SESSION_COOKIE_NAME,
+    cookieOptions: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    },
+  });
+
   session.userId = demoUser.id;
   session.tenantId = tenantApp.tenantId;
   session.email = demoUser.email;
   session.appKey = tenantApp.app.key;
   await session.save();
 
-  // Redirect via HTML (statt HTTP 303) — stellt sicher dass der Cookie
-  // vom Browser gespeichert wird BEVOR die Navigation passiert
-  const redirectPath = request.nextUrl.searchParams.get("redirect") || "/admin/dashboard";
-
-  return new NextResponse(
-    `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${redirectPath}"></head><body><p>Anmeldung...</p><script>window.location.href="${redirectPath}";</script></body></html>`,
-    {
-      status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    },
-  );
+  return response;
 }
