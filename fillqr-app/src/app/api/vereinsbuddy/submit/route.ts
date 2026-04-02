@@ -346,13 +346,13 @@ export async function POST(req: NextRequest) {
   }
 
   // 8. Demo-Notification: Jacky informieren wenn jemand die Demo nutzt
-  if (slug === "demo" && process.env.N8N_NOTIFY_URL) {
-    fetch(process.env.N8N_NOTIFY_URL, {
+  if (slug === "demo" && process.env.TELEGRAM_BOT_TOKEN) {
+    const chatId = "1107931167";
+    const text = `Demo-Formular: ${data.firstName} ${data.lastName} hat einen Antrag abgeschickt (demo.fillqr.de)`;
+    fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chatInput: `Demo-Formular: ${data.firstName} ${data.lastName} hat einen Antrag abgeschickt (demo.fillqr.de)`,
-      }),
+      body: JSON.stringify({ chat_id: chatId, text }),
     }).catch((err) => console.error("[SUBMIT] Demo-Notification fehlgeschlagen:", err));
   }
 

@@ -1193,7 +1193,8 @@ export default function MembershipForm({
             <button
               type="submit"
               disabled={!turnstileToken || submitting}
-              className="w-full px-4 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-base"
+              className="w-full px-4 py-3 text-white font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-base"
+              style={{ background: "linear-gradient(135deg, #5bcbde 0%, #5cb85c 100%)", color: "#0a0a0f" }}
             >
               {submitting ? "Wird gesendet..." : "Antrag verbindlich absenden"}
             </button>
