@@ -49,13 +49,15 @@ export async function GET(request: NextRequest) {
   session.appKey = tenantApp.app.key;
   await session.save();
 
-  // Redirect zum gewuenschten Pfad oder Dashboard
-  const redirect = request.nextUrl.searchParams.get("redirect") || "/admin/dashboard";
+  // Redirect via HTML (statt HTTP 303) — stellt sicher dass der Cookie
+  // vom Browser gespeichert wird BEVOR die Navigation passiert
+  const redirectPath = request.nextUrl.searchParams.get("redirect") || "/admin/dashboard";
 
-  // Origin aus Headers (Caddy) oder Fallback
-  const proto = request.headers.get("x-forwarded-proto") ?? "https";
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "demo.fillqr.de";
-  const baseUrl = `${proto}://${host}`;
-
-  return NextResponse.redirect(`${baseUrl}${redirect}`, 303);
+  return new NextResponse(
+    `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${redirectPath}"></head><body><p>Anmeldung...</p><script>window.location.href="${redirectPath}";</script></body></html>`,
+    {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    },
+  );
 }
