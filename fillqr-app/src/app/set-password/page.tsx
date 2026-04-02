@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 export default function SetPasswordPage() {
   return (
-    <Suspense fallback={<div style={{ maxWidth: 400, margin: "80px auto", padding: "0 20px" }}>Laden...</div>}>
+    <Suspense fallback={<div className="fq-auth"><div className="fq-auth__card"><p>Laden...</p></div></div>}>
       <SetPasswordForm />
     </Suspense>
   );
@@ -23,35 +23,29 @@ function SetPasswordForm() {
 
   if (!token) {
     return (
-      <div style={{ maxWidth: 400, margin: "80px auto", padding: "0 20px" }}>
-        <h1 style={{ marginBottom: 16 }}>Ungueltiger Link</h1>
-        <p style={{ color: "#6b7280" }}>
-          Dieser Link ist ungueltig. Bitte kontaktiere den Support.
-        </p>
+      <div className="fq-auth">
+        <div className="fq-auth__card">
+          <h1 className="fq-auth__title">Ungueltiger Link</h1>
+          <p className="fq-auth__subtitle">
+            Dieser Link ist ungueltig. Bitte kontaktiere den Support.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (success) {
     return (
-      <div style={{ maxWidth: 400, margin: "80px auto", padding: "0 20px" }}>
-        <h1 style={{ marginBottom: 16, color: "#16a34a" }}>Passwort gesetzt!</h1>
-        <p style={{ marginBottom: 24 }}>
-          Du kannst dich jetzt anmelden.
-        </p>
-        <a
-          href="/login"
-          style={{
-            display: "inline-block",
-            padding: "10px 24px",
-            backgroundColor: "#2563eb",
-            color: "white",
-            borderRadius: 6,
-            textDecoration: "none",
-          }}
-        >
-          Zur Anmeldung
-        </a>
+      <div className="fq-auth">
+        <div className="fq-auth__card">
+          <h1 className="fq-auth__title">Passwort gesetzt!</h1>
+          <p className="fq-auth__subtitle">
+            Du kannst dich jetzt anmelden.
+          </p>
+          <a href="/login" className="fq-btn fq-btn--gradient" style={{ display: "block" }}>
+            Zur Anmeldung
+          </a>
+        </div>
       </div>
     );
   }
@@ -95,84 +89,49 @@ function SetPasswordForm() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "80px auto", padding: "0 20px" }}>
-      <h1 style={{ marginBottom: 8 }}>Passwort setzen</h1>
-      <p style={{ color: "#6b7280", marginBottom: 24 }}>
-        Waehle ein Passwort fuer deinen fillQR-Zugang.
-      </p>
+    <div className="fq-auth">
+      <div className="fq-auth__card">
+        <h1 className="fq-auth__title">Passwort setzen</h1>
+        <p className="fq-auth__subtitle">
+          Waehle ein Passwort fuer deinen fillQR-Zugang.
+        </p>
 
-      <form onSubmit={handleSubmit}>
-        {error && (
-          <p style={{ color: "#dc2626", marginBottom: 16 }}>{error}</p>
-        )}
+        <form onSubmit={handleSubmit}>
+          {error && <div className="fq-auth__error">{error}</div>}
 
-        <div style={{ marginBottom: 16 }}>
-          <label
-            htmlFor="password"
-            style={{ display: "block", marginBottom: 4, fontWeight: 500 }}
-          >
-            Neues Passwort
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
-              fontSize: 16,
-            }}
-          />
-        </div>
+          <div className="fq-field">
+            <label htmlFor="password" className="fq-label">Neues Passwort</label>
+            <input
+              id="password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="fq-input"
+            />
+          </div>
 
-        <div style={{ marginBottom: 24 }}>
-          <label
-            htmlFor="confirm"
-            style={{ display: "block", marginBottom: 4, fontWeight: 500 }}
-          >
-            Passwort bestaetigen
-          </label>
-          <input
-            id="confirm"
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
-              fontSize: 16,
-            }}
-          />
-        </div>
+          <div className="fq-field">
+            <label htmlFor="confirm" className="fq-label">Passwort bestaetigen</label>
+            <input
+              id="confirm"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              className="fq-input"
+            />
+          </div>
 
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            width: "100%",
-            padding: "10px 16px",
-            backgroundColor: saving ? "#93c5fd" : "#2563eb",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            fontSize: 16,
-            cursor: saving ? "default" : "pointer",
-          }}
-        >
-          {saving ? "Wird gespeichert..." : "Passwort setzen"}
-        </button>
-      </form>
+          <button type="submit" disabled={saving} className="fq-btn fq-btn--gradient">
+            {saving ? "Wird gespeichert..." : "Passwort setzen"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
