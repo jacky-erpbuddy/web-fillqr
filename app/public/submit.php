@@ -374,7 +374,8 @@ if ($sepaIban !== '') {
 }
 
 // Upload-Mitgliedsfoto (optional)
-$photoPath = null;
+// Foto aus vorherigem Upload wiederverwenden (bei Validierungsfehlern)
+$photoPath = $_SESSION['pending_photo_path'] ?? null;
 
 if (!empty($_FILES['photo']['tmp_name']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
 
@@ -399,6 +400,8 @@ if (!empty($_FILES['photo']['tmp_name']) && $_FILES['photo']['error'] === UPLOAD
     if (move_uploaded_file($tmpName, $targetPath)) {
         // relativer Pfad für die DB
         $photoPath = 'uploads/' . $tenantId . '/photos/' . $fileName;
+        // In Session speichern fuer den Fall eines Validierungsfehlers
+        $_SESSION['pending_photo_path'] = $photoPath;
     }
 }
 
@@ -451,9 +454,12 @@ $sepaConsent  = $sepaOk ? (new DateTime())->format('Y-m-d H:i:s') : null;
 $gdprConsent  = $privacyOk ? 1 : 0;
 
 // 4) Datensatz speichern
+$memberNo = app_getNextMemberNo($pdo, $tenantId);
+
 $stmt = $pdo->prepare("
         INSERT INTO tbl_application (
         tenant_id,
+        member_no,
         created_at,
         updated_at,
         status,
@@ -482,6 +488,7 @@ $stmt = $pdo->prepare("
         photo_path
     ) VALUES (
         :tenant_id,
+        :member_no,
         NOW(),
         NOW(),
         'new',
@@ -514,6 +521,7 @@ $stmt = $pdo->prepare("
 
 $stmt->execute([
     ':tenant_id'            => $tenantId,
+    ':member_no'            => $memberNo,
     ':full_name'            => $fullName,
     ':email'                => $email,
     ':phone'                => $phone,
@@ -539,6 +547,9 @@ $stmt->execute([
     ':photo_path'           => $photoPath,
 ]);
 
+// Foto-Session aufräumen nach erfolgreichem Insert
+unset($_SESSION['pending_photo_path']);
+
 // 5) Event-Log (vereinfacht)
 $appId = (int)$pdo->lastInsertId();
 $stmtEvent = $pdo->prepare("
@@ -554,6 +565,17 @@ $stmtEvent->execute([
     ':event'  => $eventPayload,
 ]);
 
-// 6) Weiterleiten auf Danke-Seite
-header('Location: /thanks.html'); // ggf. thanks.php
+// 6) Admin-Benachrichtigung senden (PII-frei)
+$notifyTo = app_getNotifyEmail($pdo, $tenantId);
+if ($notifyTo) {
+    $tenant = app_getTenant($pdo);
+    app_sendNotify($notifyTo, $appId, $tenant['key_slug'] ?? 'fillqr', $memberNo);
+}
+
+// 7) Bestätigungs-E-Mail an Antragsteller
+$tenant = $tenant ?? app_getTenant($pdo);
+app_sendConfirmation($email, $fullName, $appId, $tenant['name'] ?? 'Verein', $memberNo);
+
+// 8) Weiterleiten auf Danke-Seite
+header('Location: /thanks.html');
 exit;

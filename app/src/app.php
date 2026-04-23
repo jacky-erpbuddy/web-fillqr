@@ -4,9 +4,10 @@
 // Globale App-Konfiguration (MVP)
 // ---------------------------------------------------------
 
-// Config zuerst laden (enthält DB + reCAPTCHA Credentials)
+// Config zuerst laden (enthält DB + reCAPTCHA + SMTP Credentials)
 require_once __DIR__.'/config.php';
 require_once __DIR__.'/tenant.php';
+require_once __DIR__.'/mail.php';
 
 /**
  * Liefert den reCAPTCHA-Site-Key für das Formular.
@@ -81,7 +82,8 @@ function app_getTenant(PDO $pdo): array {
         'require_iban'   => false,
         'show_birthdate' => true,
         'app_type'       => 'club',   // später: "fair", "expo" etc.
-        'entry_days'     => [1, 15],  // Fallback, falls nichts konfiguriert
+        // entry_days: KEIN Default hier! Wird aus tbl_tenant.entry_days gelesen.
+        // Sonst überschreibt array_merge den DB-Wert.
     ];
 
     $row['theme']    = array_merge($themeDefaults, $theme);
@@ -155,19 +157,21 @@ function app_getNotifyEmail(PDO $pdo, int $tenantId): ?string {
 }
 
 
-function app_sendNotify(string $to, int $appId, string $tenantKey): void {
-  // Kurze, PII-freie Mail
+function app_sendNotify(string $to, int $appId, string $tenantKey, int $memberNo = 0): void {
+  $displayNo = $memberNo > 0 ? $memberNo : $appId;
   $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-  $linkAdmin = "https://{$host}/admin/"; // PII-Ansicht nur im Admin
-  $subject = "Neuer Mitgliedsantrag (#{$appId}) – {$tenantKey}";
-  $body = "Hallo,\n\nsoeben ist ein neuer Antrag eingegangen.\n"
-        . "Antrags-ID: #{$appId}\n"
-        . "Zeit: " . date('d.m.Y H:i') . "\n\n"
-        . "Admin-Ansicht: {$linkAdmin}\n\n"
-        . "Hinweis: Diese E-Mail enthält bewusst keine persönlichen Daten.";
-  $headers = "From: fillqr Demo <no-reply@{$host}>\r\n";
-  // Provider nutzt i.d.R. sendmail -> mail() reicht für den Start.
-  @mail($to, $subject, $body, $headers);
+  $link = "https://{$host}/admin/detail.php?id={$appId}";
+  $subject = "Neuer Mitgliedsantrag (#{$displayNo})";
+  $time = date('d.m.Y H:i');
+  $body = <<<HTML
+<p>Hallo,</p>
+<p>soeben ist ein neuer Mitgliedsantrag eingegangen.</p>
+<p><strong>Mitglieds-Nr.:</strong> #{$displayNo}<br>
+<strong>Zeitpunkt:</strong> {$time}</p>
+<p><a href="{$link}" style="display:inline-block;padding:10px 20px;background:#2b7eb8;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Antrag ansehen</a></p>
+<p style="color:#888;font-size:0.85em;">Diese E-Mail enthaelt bewusst keine persoenlichen Daten.</p>
+HTML;
+  app_sendMail($to, $subject, $body);
 }
 
 function app_getAllowedEntryDays(PDO $pdo, int $tenantId): array {
@@ -244,6 +248,19 @@ function app_getThemeStyleTag(array $theme): string {
  */
 function app_getStatusMap(): array {
     return [
+        'new'      => 'Neu',
+        'active'   => 'Aktiv',
+        'passive'  => 'Passiv',
+        'resting'  => 'Ruhend',
+        'archived' => 'Archiviert',
+    ];
+}
+
+/**
+ * Alle DB-gültigen Status (inkl. Legacy) für Validierung.
+ */
+function app_getAllStatuses(): array {
+    return [
         'new'        => 'Neu',
         'reviewed'   => 'Geprüft',
         'active'     => 'Aktiv',
@@ -261,7 +278,7 @@ function app_getStatusMap(): array {
  * Gibt das deutsche Label für einen Status-Wert zurück.
  */
 function app_getStatusLabel(string $status): string {
-    $map = app_getStatusMap();
+    $map = app_getAllStatuses();
     return $map[$status] ?? $status;
 }
 
@@ -269,6 +286,40 @@ function app_getStatusLabel(string $status): string {
  * IBAN-Validierung per Mod-97 (ISO 13616).
  * Akzeptiert Eingabe mit/ohne Leerzeichen, wandelt in Großbuchstaben um.
  */
+/**
+ * Sendet Bestätigungs-E-Mail an den Antragsteller.
+ * Enthält nur die Bestätigung, keine sensiblen Daten.
+ */
+function app_sendConfirmation(string $applicantEmail, string $applicantName, int $appId, string $tenantName, int $memberNo = 0): void {
+    $displayNo = $memberNo > 0 ? $memberNo : $appId;
+    $subject = "Ihr Mitgliedsantrag bei {$tenantName} (#{$displayNo})";
+    $name = htmlspecialchars($applicantName, ENT_QUOTES, 'UTF-8');
+    $tn   = htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8');
+    $time = date('d.m.Y H:i');
+    $body = <<<HTML
+<p>Hallo {$name},</p>
+<p>vielen Dank f&uuml;r Ihren Mitgliedsantrag bei <strong>{$tn}</strong>.</p>
+<p>Ihr Antrag wurde erfolgreich eingereicht und wird nun gepr&uuml;ft.</p>
+<table style="margin:12px 0;font-size:0.95em;">
+  <tr><td style="padding:4px 12px 4px 0;color:#888;">Mitglieds-Nr.:</td><td><strong>#{$displayNo}</strong></td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:#888;">Eingegangen am:</td><td>{$time}</td></tr>
+</table>
+<p>Sie erhalten eine weitere Benachrichtigung, sobald Ihr Antrag bearbeitet wurde.</p>
+<p>Bei Fragen wenden Sie sich bitte direkt an den Verein.</p>
+<p>Mit freundlichen Gr&uuml;&szlig;en<br><strong>{$tn}</strong></p>
+HTML;
+    app_sendMail($applicantEmail, $subject, $body, $tenantName);
+}
+
+/**
+ * Gibt die nächste freie Mitgliedsnummer für einen Tenant zurück.
+ */
+function app_getNextMemberNo(PDO $pdo, int $tenantId): int {
+    $stmt = $pdo->prepare("SELECT COALESCE(MAX(member_no), 0) + 1 FROM tbl_application WHERE tenant_id = ?");
+    $stmt->execute([$tenantId]);
+    return (int)$stmt->fetchColumn();
+}
+
 function app_validateIBAN(string $iban): bool {
     $iban = strtoupper(str_replace(' ', '', $iban));
     if (strlen($iban) < 15 || strlen($iban) > 34) return false;

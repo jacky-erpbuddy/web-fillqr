@@ -58,6 +58,16 @@ $stmtD = $pdo->prepare("SELECT code, label FROM tbl_discipline WHERE tenant_id =
 $stmtD->execute([$tenantId]);
 $disciplines = $stmtD->fetchAll(PDO::FETCH_ASSOC);
 
+// Lookup-Maps für Labels
+$disciplineMap = [];
+foreach ($disciplines as $disc) {
+    $disciplineMap[$disc['code']] = $disc['label'];
+}
+$typeMap = [];
+foreach ($types as $t) {
+    $typeMap[$t['code']] = $t['label'];
+}
+
 // Warnungen aus Event-Log nachladen (falls has_warnings = 1)
 $warnings = [];
 if (!empty($app['has_warnings'])) {
@@ -97,7 +107,7 @@ unset($_SESSION['update_errors']);
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Mitglied #<?= (int)$app['id'] ?> – <?= htmlspecialchars($tenantName) ?></title>
+  <title>Mitglied #<?= (int)($app['member_no'] ?? $app['id']) ?> – <?= htmlspecialchars($tenantName) ?></title>
 
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
@@ -231,7 +241,7 @@ unset($_SESSION['update_errors']);
         </div>
 
         <h1>
-          Mitglied #<?= (int)$app['id'] ?>
+          Mitglied #<?= (int)($app['member_no'] ?? $app['id']) ?>
           – <?= htmlspecialchars($app['full_name'] ?? '') ?>
         </h1>
         <p class="subtitle">
@@ -288,10 +298,10 @@ unset($_SESSION['update_errors']);
             <span class="tag">Minderj&auml;hrig</span>
           <?php endif; ?>
           <?php if (!empty($app['style'])): ?>
-            <span class="tag">Sparte: <?= htmlspecialchars($app['style']) ?></span>
+            <span class="tag">Sparte: <?= htmlspecialchars($disciplineMap[$app['style']] ?? $app['style']) ?></span>
           <?php endif; ?>
           <?php if (!empty($app['membership_type_code'])): ?>
-            <span class="tag">Tarif: <?= htmlspecialchars($app['membership_type_code']) ?></span>
+            <span class="tag"><?= htmlspecialchars($typeMap[$app['membership_type_code']] ?? $app['membership_type_code']) ?></span>
           <?php endif; ?>
         </p>
       </div>
@@ -499,11 +509,11 @@ unset($_SESSION['update_errors']);
 
         <h2>System-Infos</h2>
         <dl>
+          <dt>Mitglieds-Nr.</dt>
+          <dd>#<?= (int)($app['member_no'] ?? $app['id']) ?></dd>
+
           <dt>Interne ID</dt>
           <dd><?= (int)$app['id'] ?></dd>
-
-          <dt>Tenant-ID</dt>
-          <dd><?= (int)$app['tenant_id'] ?></dd>
 
           <dt>Warnungen</dt>
           <dd>

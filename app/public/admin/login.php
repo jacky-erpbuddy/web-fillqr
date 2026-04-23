@@ -131,6 +131,10 @@ $pageTitle = 'Admin-Login — ' . $tenantName;
           </button>
         </div>
       </form>
+
+      <p style="text-align:center; margin-top: var(--spacing-md); font-size: var(--font-size-sm);">
+        <a href="forgot-password.php" style="color: var(--color-text-muted);">Passwort vergessen?</a>
+      </p>
     </div>
   </div>
 

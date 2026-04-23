@@ -33,11 +33,17 @@ function validateIBAN(string $iban): bool {
     return bcmod($numeric, '97') === '1';
 }
 
-// Erwartete CSV-Spalten (festes Mapping)
-$expectedColumns = [
+// Pflicht-Spalten (müssen in der CSV vorhanden sein)
+$requiredColumns = ['Name', 'Email'];
+
+// Alle erkannten Spalten (optional, werden importiert wenn vorhanden)
+$knownColumns = [
     'Name', 'Email', 'Telefon', 'Geburtsdatum', 'Strasse',
     'PLZ', 'Ort', 'Mitgliedstyp', 'Abteilung', 'IBAN', 'BIC', 'Kontoinhaber'
 ];
+
+// Wird nach Header-Parsing gesetzt: nur die Spalten, die tatsächlich in der CSV sind
+$activeColumns = [];
 
 // ── Zustand ermitteln ──────────────────────────────────────
 $step       = 'upload';   // upload | preview | result
@@ -65,14 +71,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($rows)) {
             $errors[] = 'Keine Daten in der Session gefunden. Bitte erneut hochladen.';
         } else {
+            // Bestehende E-Mails für diesen Tenant laden (Duplikat-Erkennung)
+            $stmtExisting = $pdo->prepare("SELECT LOWER(email) FROM tbl_application WHERE tenant_id = ?");
+            $stmtExisting->execute([$tenantId]);
+            $existingEmails = $stmtExisting->fetchAll(PDO::FETCH_COLUMN);
+            $existingEmails = array_flip($existingEmails); // Lookup-Map
+
+            // Auch innerhalb der CSV Duplikate erkennen
+            $csvEmails = [];
+
+            // Nächste freie Mitgliedsnummer holen
+            $nextMemberNo = app_getNextMemberNo($pdo, $tenantId);
+
             $stmtInsert = $pdo->prepare("
                 INSERT INTO tbl_application (
-                    tenant_id, status, full_name, email, phone, birthdate,
+                    tenant_id, member_no, status, full_name, email, phone, birthdate,
                     street, zip, city, membership_type_code, style,
                     sepa_iban, sepa_bic, sepa_account_holder,
                     gdpr_consent, gdpr_consent_at, created_at
-                ) VALUES (?, 'reviewed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                ) VALUES (?, ?, 'reviewed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
             ");
+
+            $skipped = 0;
 
             foreach ($rows as $i => $row) {
                 $rowNum   = $i + 2; // +2: Header=1, 0-indexed
@@ -80,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $name  = trim($row['Name'] ?? '');
                 $email = trim($row['Email'] ?? '');
+                $emailLower = strtolower($email);
 
                 // Pflichtfelder
                 if ($name === '') {
@@ -87,6 +108,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $rowErrors[] = 'E-Mail fehlt oder ungültig';
+                }
+
+                // Duplikat-Prüfung: bereits in DB?
+                if ($emailLower !== '' && isset($existingEmails[$emailLower])) {
+                    $skipped++;
+                    $failedRows[] = [
+                        'row'    => $rowNum,
+                        'name'   => $name,
+                        'email'  => $email,
+                        'reason' => 'Duplikat: E-Mail existiert bereits',
+                    ];
+                    continue;
+                }
+
+                // Duplikat-Prüfung: doppelt in CSV?
+                if ($emailLower !== '' && isset($csvEmails[$emailLower])) {
+                    $skipped++;
+                    $failedRows[] = [
+                        'row'    => $rowNum,
+                        'name'   => $name,
+                        'email'  => $email,
+                        'reason' => 'Duplikat: E-Mail doppelt in CSV (Zeile ' . $csvEmails[$emailLower] . ')',
+                    ];
+                    continue;
                 }
 
                 // IBAN prüfen (nur wenn angegeben)
@@ -109,6 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $stmtInsert->execute([
                         $tenantId,
+                        $nextMemberNo,
                         $name,
                         $email,
                         trim($row['Telefon'] ?? '') ?: null,
@@ -123,6 +169,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         trim($row['Kontoinhaber'] ?? '') ?: null,
                     ]);
                     $imported++;
+                    $nextMemberNo++;
+                    $csvEmails[$emailLower] = $rowNum;
                 } catch (PDOException $e) {
                     $failed++;
                     $failedRows[] = [
@@ -135,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Session-Daten aufräumen
-            unset($_SESSION['csv_import_rows']);
+            unset($_SESSION['csv_import_rows'], $_SESSION['csv_import_columns']);
         }
 
     // ── Schritt 1: CSV hochladen + Vorschau ────────────────
@@ -194,12 +242,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Header normalisieren (Whitespace entfernen)
                     $header = array_map('trim', $header);
 
-                    // Spalten prüfen
-                    $missing = array_diff($expectedColumns, $header);
+                    // Pflicht-Spalten prüfen (nur Name + Email)
+                    $missing = array_diff($requiredColumns, $header);
                     if (!empty($missing)) {
-                        $errors[] = 'Fehlende Spalten: ' . implode(', ', $missing)
-                                  . '. Bitte die Vorlage verwenden.';
+                        $errors[] = 'Pflicht-Spalten fehlen: ' . implode(', ', $missing);
                         $step = 'upload';
+                    } else {
+                        // Nur bekannte Spalten verwenden, die in der CSV vorhanden sind
+                        $activeColumns = array_values(array_intersect($knownColumns, $header));
                     }
                 }
             }
@@ -209,6 +259,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rows    = [];
             $lineNum = 1;
 
+            // Header-Index-Map: Spaltenname → Position in CSV
+            $headerMap = array_flip($header);
+
             while (($line = fgetcsv($handle, 0, ',')) !== false) {
                 $lineNum++;
                 // Leere Zeilen überspringen
@@ -216,10 +269,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
                 }
 
-                // Spalten dem Header zuordnen
+                // Spalten per Header-Name zuordnen (nicht per Position)
                 $row = [];
-                foreach ($expectedColumns as $idx => $col) {
-                    $row[$col] = $line[$idx] ?? '';
+                foreach ($activeColumns as $col) {
+                    $idx = $headerMap[$col] ?? null;
+                    $row[$col] = ($idx !== null && isset($line[$idx])) ? $line[$idx] : '';
                 }
                 $rows[] = $row;
             }
@@ -230,7 +284,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $step = 'upload';
             } else {
                 // In Session speichern für Bestätigung
-                $_SESSION['csv_import_rows'] = $rows;
+                $_SESSION['csv_import_rows']    = $rows;
+                $_SESSION['csv_import_columns'] = $activeColumns;
 
                 // Vorschau: erste 5 Zeilen
                 $preview = array_slice($rows, 0, 5);
@@ -464,8 +519,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h2>CSV-Datei hochladen</h2>
 
         <p class="upload-hint">
-          Erwartete Spalten: <strong>Name, Email, Telefon, Geburtsdatum, Strasse, PLZ, Ort, Mitgliedstyp, Abteilung, IBAN, BIC, Kontoinhaber</strong><br>
-          Pflichtfelder: Name, Email. Max. 2 MB, nur .csv-Dateien.
+          <strong>Pflicht-Spalten:</strong> Name, Email<br>
+          <strong>Optionale Spalten:</strong> Telefon, Geburtsdatum, Strasse, PLZ, Ort, Mitgliedstyp, Abteilung, IBAN, BIC, Kontoinhaber<br>
+          Nur vorhandene Spalten werden importiert. Max. 2 MB, nur .csv-Dateien.
         </p>
 
         <p style="margin-top:var(--spacing-xs);">
@@ -487,9 +543,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <h2>Vorschau</h2>
 
-        <?php $totalRows = count($_SESSION['csv_import_rows'] ?? []); ?>
+        <?php
+          $totalRows = count($_SESSION['csv_import_rows'] ?? []);
+          $displayColumns = !empty($activeColumns) ? $activeColumns : array_keys($preview[0] ?? []);
+
+          // Duplikat-Vorschau: wie viele Emails existieren bereits?
+          $previewEmails = array_map(function($r) { return strtolower(trim($r['Email'] ?? '')); }, $_SESSION['csv_import_rows'] ?? []);
+          $previewEmails = array_filter($previewEmails);
+          $stmtDupeCheck = $pdo->prepare("SELECT LOWER(email) FROM tbl_application WHERE tenant_id = ?");
+          $stmtDupeCheck->execute([$tenantId]);
+          $existingForPreview = array_flip($stmtDupeCheck->fetchAll(PDO::FETCH_COLUMN));
+          $dupeCount = 0;
+          $csvSeen = [];
+          foreach ($previewEmails as $pe) {
+              if (isset($existingForPreview[$pe]) || isset($csvSeen[$pe])) { $dupeCount++; }
+              $csvSeen[$pe] = true;
+          }
+          $newCount = $totalRows - $dupeCount;
+        ?>
         <div class="alert alert--info">
-          <?= $totalRows ?> Zeile<?= $totalRows !== 1 ? 'n' : '' ?> erkannt.
+          <?= $totalRows ?> Zeile<?= $totalRows !== 1 ? 'n' : '' ?> erkannt
+          (<?= count($displayColumns) ?> Spalte<?= count($displayColumns) !== 1 ? 'n' : '' ?>).
+          <?php if ($dupeCount > 0): ?>
+            Davon <?= $dupeCount ?> Duplikat<?= $dupeCount !== 1 ? 'e' : '' ?> (werden übersprungen).
+          <?php endif; ?>
           <?php if ($totalRows > 5): ?>
             Es werden die ersten 5 Zeilen als Vorschau angezeigt.
           <?php endif; ?>
@@ -500,7 +577,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <thead>
               <tr>
                 <th>#</th>
-                <?php foreach ($expectedColumns as $col): ?>
+                <?php foreach ($displayColumns as $col): ?>
                   <th><?= htmlspecialchars($col) ?></th>
                 <?php endforeach; ?>
               </tr>
@@ -509,7 +586,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <?php foreach ($preview as $idx => $row): ?>
                 <tr>
                   <td><?= $idx + 1 ?></td>
-                  <?php foreach ($expectedColumns as $col): ?>
+                  <?php foreach ($displayColumns as $col): ?>
                     <td><?= htmlspecialchars($row[$col] ?? '') ?></td>
                   <?php endforeach; ?>
                 </tr>
@@ -542,10 +619,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </div>
         <?php endif; ?>
 
-        <?php if ($failed > 0): ?>
+        <?php if ($skipped > 0): ?>
+          <div class="alert alert--info">
+            <?= $skipped ?> Duplikat<?= $skipped !== 1 ? 'e' : '' ?> übersprungen.
+          </div>
+        <?php endif; ?>
+
+        <?php if ($failed > 0 || $skipped > 0): ?>
+          <?php if ($failed > 0): ?>
           <div class="alert alert--error">
             <?= $failed ?> Zeile<?= $failed !== 1 ? 'n' : '' ?> fehlgeschlagen.
           </div>
+          <?php endif; ?>
 
           <div class="table-wrapper">
             <table>

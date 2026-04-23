@@ -1,5 +1,10 @@
-# fillQR Admin — Session-based auth (login.php)
-# Basic Auth removed — replaced by PHP login system.
+# fillQR Admin — Session-based auth (login.php) + Basic Auth (Dev-Phase)
+
+# --- Basic Auth ---
+AuthType Basic
+AuthName "fillQR Admin"
+AuthUserFile /homepages/u77196/fillqr/.htpasswd
+Require valid-user
 
 # Keine Verzeichnisliste
 Options -Indexes

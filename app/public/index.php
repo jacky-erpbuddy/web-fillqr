@@ -173,7 +173,11 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
               <span class="file-upload-btn__text">Foto aufnehmen oder hochladen</span>
             </label>
             <input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" class="file-upload-input">
-            <div class="file-upload-name" id="photo-filename"></div>
+            <div class="file-upload-name" id="photo-filename">
+              <?php if (!empty($_SESSION['pending_photo_path'])): ?>
+                Foto bereits hochgeladen
+              <?php endif; ?>
+            </div>
             <div class="help-text">
               Optionales Foto (JPG, PNG oder WEBP, max. 5&nbsp;MB).
             </div>
@@ -348,9 +352,9 @@ $pageTitle = 'Aufnahmeantrag ' . $tenantName;
               werden durch den Verein rechtzeitig bekannt gegeben.
             </p>
             <p class="help-text">
-              Hinweis zur Kündigung (Demo-Text): Die Kündigung der Mitgliedschaft ist
-              zum Ende des laufenden Quartals möglich. Die Kündigung gilt als fristgerecht,
-              wenn sie dem Verein spätestens 14 Tage vor Ablauf des jeweiligen Quartals vorliegt.
+              Hinweis zur Kündigung: Die Kündigung der Mitgliedschaft richtet sich
+              nach der Satzung und Beitragsordnung des Vereins. Bitte informieren
+              Sie sich über die geltenden Fristen und Bedingungen.
             </p>
           </div>
 

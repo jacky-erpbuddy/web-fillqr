@@ -15,6 +15,22 @@ $tenantLogo = !empty($tenant['logo_path']) ? $tenant['logo_path'] : null;
 $theme      = $tenant['theme'] ?? [];
 
 // --------------------------------------------------
+// Lookup-Maps für Labels (Sparten + Tarife)
+// --------------------------------------------------
+$stmtDisc = $pdo->prepare("SELECT code, label FROM tbl_discipline WHERE tenant_id = ? AND active = 1");
+$stmtDisc->execute([$tenantId]);
+$disciplineMap = [];
+while ($d = $stmtDisc->fetch(PDO::FETCH_ASSOC)) {
+    $disciplineMap[$d['code']] = $d['label'];
+}
+
+$typeRows = app_getMembershipTypes($pdo, $tenantId);
+$typeMap = [];
+foreach ($typeRows as $t) {
+    $typeMap[$t['code']] = $t['label'];
+}
+
+// --------------------------------------------------
 // Filter aus GET lesen
 // --------------------------------------------------
 
@@ -77,7 +93,7 @@ $offset = ($page - 1) * $perPage;
 
 // Hauptabfrage mit LIMIT/OFFSET
 $sql = "
-    SELECT id, created_at, status, full_name, email, phone, birthdate,
+    SELECT id, member_no, created_at, status, full_name, email, phone, birthdate,
            street, zip, city, style, membership_type_code, entry_date,
            is_minor, has_warnings
     FROM tbl_application
@@ -120,7 +136,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     /* Filterleiste */
     .filter-bar {
-      margin: 0 0 var(--spacing-sm);
+      margin: 0;
       font-size: var(--font-size-sm);
       display: flex;
       flex-wrap: wrap;
@@ -131,22 +147,49 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .filter-group {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
     }
 
-    .filter-bar label {
+    .filter-group label {
       font-weight: 600;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .filter-bar select,
     .filter-bar input[type="date"],
     .filter-bar input[type="text"] {
-      padding: 6px 10px;
+      padding: 7px 10px;
       font: inherit;
       font-size: var(--font-size-sm);
-      min-width: 120px;
+    }
+
+    .filter-bar select { min-width: 100px; }
+    .filter-bar input[type="date"] { min-width: 130px; }
+
+    .filter-actions {
+      flex-direction: row;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .btn-reset {
+      padding: 7px 12px;
+      font: inherit;
+      font-size: var(--font-size-sm);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: transparent;
+      color: var(--color-text-muted);
+      text-decoration: none;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-reset:hover {
+      border-color: var(--color-danger);
+      color: var(--color-danger);
     }
 
     .btn-small {
@@ -173,6 +216,44 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
       text-decoration: none;
     }
     .link-reset:hover {
+      color: var(--color-cyan);
+    }
+
+    /* Toolbar: Filter + Actions auf einer Zeile */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-export {
+      padding: 7px 14px;
+      font: inherit;
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: transparent;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-export:hover {
+      border-color: var(--color-cyan);
       color: var(--color-cyan);
     }
 
@@ -249,6 +330,11 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
         max-width: 100%;
       }
 
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
       .filter-bar {
         flex-direction: column;
         align-items: stretch;
@@ -264,10 +350,13 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
         width: 100%;
       }
 
-      .filter-group:last-child {
-        flex-direction: row;
+      .filter-actions {
+        flex-direction: row !important;
         justify-content: flex-end;
-        gap: 8px;
+      }
+
+      .toolbar-actions {
+        justify-content: flex-end;
       }
 
       thead {
@@ -389,42 +478,61 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="card card--admin">
 
-      <!-- Filterleiste -->
-      <form method="get" class="filter-bar">
-        <div class="filter-group">
-          <label for="status">Status</label>
-          <select id="status" name="status">
-            <option value="">Alle</option>
-            <?php foreach ($statusMap as $val => $label): ?>
-              <option value="<?= $val ?>" <?= $filterStatus === $val ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
+      <!-- Toolbar: Filter + Export -->
+      <div class="toolbar">
+        <form method="get" class="filter-bar">
+          <div class="filter-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="">Alle</option>
+              <?php foreach ($statusMap as $val => $label): ?>
+                <option value="<?= $val ?>" <?= $filterStatus === $val ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
 
-        <div class="filter-group">
-          <label for="date_from">Von (Eingang)</label>
-          <input type="date" id="date_from" name="date_from"
-                 value="<?= htmlspecialchars($dateFrom) ?>">
-        </div>
+          <div class="filter-group">
+            <label for="date_from">Eingang von</label>
+            <input type="date" id="date_from" name="date_from"
+                   value="<?= htmlspecialchars($dateFrom) ?>">
+          </div>
 
-        <div class="filter-group">
-          <label for="date_to">Bis (Eingang)</label>
-          <input type="date" id="date_to" name="date_to"
-                 value="<?= htmlspecialchars($dateTo) ?>">
-        </div>
+          <div class="filter-group">
+            <label for="date_to">Eingang bis</label>
+            <input type="date" id="date_to" name="date_to"
+                   value="<?= htmlspecialchars($dateTo) ?>">
+          </div>
 
-        <div class="filter-group" style="flex:1; min-width:180px;">
-          <label for="search">Suche (Name / E-Mail)</label>
-          <input type="text" id="search" name="search"
-                 placeholder="z. B. Müller oder name@example.de"
-                 value="<?= htmlspecialchars($search) ?>">
-        </div>
+          <div class="filter-group" style="flex:1; min-width:140px;">
+            <label for="search">Suche</label>
+            <input type="text" id="search" name="search"
+                   placeholder="Name oder E-Mail"
+                   value="<?= htmlspecialchars($search) ?>">
+          </div>
 
-        <div class="filter-group">
-          <button type="submit" class="btn-small">Filtern</button>
-          <a href="index.php" class="link-reset">Filter zurücksetzen</a>
+          <div class="filter-group filter-actions">
+            <button type="submit" class="btn-small">Filtern</button>
+            <?php if ($filterStatus !== '' || $dateFrom !== '' || $dateTo !== '' || $search !== ''): ?>
+              <a href="index.php" class="btn-reset">Zurücksetzen</a>
+            <?php endif; ?>
+          </div>
+        </form>
+
+        <div class="toolbar-actions">
+          <?php
+            $exportParams = array_filter([
+                'status' => $filterStatus,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'search' => $search,
+            ]);
+            $exportQuery = $exportParams ? '?' . http_build_query($exportParams) : '';
+          ?>
+          <a href="export.php<?= htmlspecialchars($exportQuery) ?>" class="btn-export" title="CSV-Export">
+            CSV-Export (<?= $total ?>)
+          </a>
         </div>
-      </form>
+      </div>
 
       <?php if (!$applications): ?>
         <p class="muted">Es liegen in dieser Ansicht keine Anträge vor.</p>
@@ -433,7 +541,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Nr.</th>
                 <th>Datum</th>
                 <th>Status</th>
                 <th>Mitglied</th>
@@ -458,7 +566,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
               <tr class="app-row-desktop">
                 <td class="nowrap">
                   <a href="detail.php?id=<?= $rowId ?>">
-                    #<?= $rowId ?>
+                    #<?= (int)($row['member_no'] ?? $rowId) ?>
                   </a>
                 </td>
                 <td class="nowrap">
@@ -506,11 +614,11 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </td>
                 <td>
                   <?php if (!empty($row['style'])): ?>
-                    <div class="badge"><?= htmlspecialchars($row['style']) ?></div>
+                    <div class="badge"><?= htmlspecialchars($disciplineMap[$row['style']] ?? $row['style']) ?></div>
                   <?php endif; ?>
                   <?php if (!empty($row['membership_type_code'])): ?>
                     <div class="muted">
-                      Tarif: <?= htmlspecialchars($row['membership_type_code']) ?>
+                      <?= htmlspecialchars($typeMap[$row['membership_type_code']] ?? $row['membership_type_code']) ?>
                     </div>
                   <?php endif; ?>
                 </td>
@@ -531,7 +639,7 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <td colspan="9">
                   <div class="app-card">
                     <div class="app-card-top">
-                      <span class="app-card-id">#<?= $rowId ?></span>
+                      <span class="app-card-id">#<?= (int)($row['member_no'] ?? $rowId) ?></span>
                       <span class="status-pill <?= $pillClass ?>">
                         <?= htmlspecialchars(app_getStatusLabel($status)) ?>
                         <?php if ($hasWarn): ?>
@@ -584,11 +692,11 @@ $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                       <?php if (!empty($row['style']) || !empty($row['membership_type_code'])): ?>
                         <div>
                           <?php if (!empty($row['style'])): ?>
-                            Sparte: <?= htmlspecialchars($row['style']) ?>
+                            Sparte: <?= htmlspecialchars($disciplineMap[$row['style']] ?? $row['style']) ?>
                           <?php endif; ?>
                           <?php if (!empty($row['membership_type_code'])): ?>
                             <?php if (!empty($row['style'])): ?> · <?php endif; ?>
-                            Tarif: <?= htmlspecialchars($row['membership_type_code']) ?>
+                            <?= htmlspecialchars($typeMap[$row['membership_type_code']] ?? $row['membership_type_code']) ?>
                           <?php endif; ?>
                         </div>
                       <?php endif; ?>

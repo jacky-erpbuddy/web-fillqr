@@ -36,7 +36,7 @@ if ($appId <= 0) {
 }
 
 // Erlaubte Statuswerte (aus zentraler Map)
-$allowedStatuses = array_keys(app_getStatusMap());
+$allowedStatuses = array_keys(app_getAllStatuses());
 if (!in_array($newStatus, $allowedStatuses, true)) {
     http_response_code(400);
     echo 'Ungültiger Status.';

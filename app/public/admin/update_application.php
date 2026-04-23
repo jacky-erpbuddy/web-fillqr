@@ -79,13 +79,13 @@ if ($input['email'] === '') {
     $errors[] = 'E-Mail-Adresse hat ein ungueltiges Format.';
 }
 
-// IBAN: nur pruefen wenn angegeben
-if ($input['sepa_iban'] !== '' && !app_validateIBAN($input['sepa_iban'])) {
+// IBAN: nur pruefen wenn angegeben UND geaendert (bestehende IBANs nicht erneut validieren)
+if ($input['sepa_iban'] !== '' && $input['sepa_iban'] !== ($current['sepa_iban'] ?? '') && !app_validateIBAN($input['sepa_iban'])) {
     $errors[] = 'IBAN ist ungueltig (Mod-97 Pruefung fehlgeschlagen).';
 }
 
 // Status: nur erlaubte Werte (aus zentraler Map)
-$allowedStatuses = array_keys(app_getStatusMap());
+$allowedStatuses = array_keys(app_getAllStatuses());
 if ($input['status'] !== '' && !in_array($input['status'], $allowedStatuses, true)) {
     $errors[] = 'Ungueltiger Status.';
 }
